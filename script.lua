@@ -1,93 +1,138 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Function to get a unique device identifier that works across exploits
+local function GetDeviceIdentifier()
+    local result = ""
+    
+    -- Try multiple methods to get device ID
+    -- Method 1: RbxAnalyticsService (works on some exploits)
+    pcall(function()
+        result = tostring(game:GetService("RbxAnalyticsService"):GetClientId())
+    end)
+    
+    -- Method 2: Executor-specific identifiers (fallback)
+    if result == "" then
+        if syn then
+            result = syn.cache_id or tostring(syn.request({Url = "https://httpbin.org/get"}).Body)
+        elseif identifyexecutor then
+            result = tostring(identifyexecutor()) .. game:GetService("Players").LocalPlayer.UserId
+        else
+            -- Last resort: Use a combination of player data as identifier
+            local player = game:GetService("Players").LocalPlayer
+            result = tostring(player.UserId) .. tostring(player.Name) .. tostring(game.PlaceId)
+        end
+    end
+    
+    return result
+end
+
+-- Initialize device tracking
+local DeviceTracker = {}
+DeviceTracker.FileName = "AfonsoScripts_DeviceKeys.dat"
+DeviceTracker.Data = {}
+
+-- Try to load existing device data
+pcall(function()
+    if readfile and isfile and isfile(DeviceTracker.FileName) then
+        local success, data = pcall(function()
+            return game:GetService("HttpService"):JSONDecode(readfile(DeviceTracker.FileName))
+        end)
+        if success then
+            DeviceTracker.Data = data
+        end
+    end
+end)
+
+-- Save device data
+function DeviceTracker:SaveData()
+    pcall(function()
+        if writefile then
+            writefile(self.FileName, game:GetService("HttpService"):JSONEncode(self.Data))
+        end
+    end)
+end
+
+-- Check if key is already used on another device
+function DeviceTracker:IsKeyUsedOnOtherDevice(key, currentDevice)
+    if self.Data[key] and self.Data[key] ~= currentDevice then
+        return true
+    end
+    return false
+end
+
+-- Register key to device
+function DeviceTracker:RegisterKey(key, device)
+    self.Data[key] = device
+    self:SaveData()
+end
+
+-- Create window with key system
 local Window = Rayfield:CreateWindow({
-   Name = "Afonso Scripts",
-   Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
-   LoadingTitle = "Example Hub",
-   LoadingSubtitle = "by Afonso",
-   Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
-
-   DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
-
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = true, -- Create a custom folder for your hub/game
-      FileName = "ExampleHub"
-   },
-
-   Discord = {
-      Enabled = true, -- Prompt the user to join your Discord server if their executor supports it
-      Invite = "https://discord.gg/mpTjs9EZ", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
-      RememberJoins = false -- Set this to false to make them join the discord every time they load it up
-   },
-      
-KeySystem = true,
-KeySettings = {
-   Title = "Afonso Scripts || keys",
-   Subtitle = "Key in discord server",
-   Note = "Join discord server https://discord.gg/mpTjs9EZ",
-   FileName = "ExampleHubKey",
-   SaveKey = true, -- The user's key will be saved
-   GrabKeyFromSite = false,
-   Key = {"premiumkey1"}, -- List of valid keys
-   
-   -- Custom key validation function
-   Callback = function(inputKey)
-      local player = game.Players.LocalPlayer
-      local username = player.Name
-      local hwid = game:GetService("RbxAnalyticsService"):GetClientId() -- Get unique device identifier
-      
-      -- Create a filename for device tracking
-      local deviceFile = "AfonsoScripts_KeyDevices.json"
-      
-      -- Try to load existing device data
-      local usedDevices = {}
-      local success, result = pcall(function()
-         if isfile(deviceFile) then
-            return game:GetService("HttpService"):JSONDecode(readfile(deviceFile))
-         end
-         return {}
-      end)
-      
-      if success then
-         usedDevices = result
-      end
-      
-      -- Check if key is already used on another device
-      if usedDevices[inputKey] and usedDevices[inputKey] ~= hwid then
-         return false -- Key already used on another device
-      end
-      
-      -- Validate key format or use premiumkey1
-      local isValid = false
-      
-      -- Check username format
-      local keyUsername = inputKey:match("@([^_]+)")
-      if keyUsername and keyUsername == username then
-         isValid = true
-      end
-      
-      -- Check premiumkey1
-      if inputKey == "premiumkey1" then
-         isValid = true
-      end
-      
-      -- If valid, register this device as using this key
-      if isValid then
-         usedDevices[inputKey] = hwid
-         
-         -- Save the updated device registry
-         pcall(function()
-            writefile(deviceFile, game:GetService("HttpService"):JSONEncode(usedDevices))
-         end)
-         
-         return true
-      end
-      
-      return false
-   end
-}
+    Name = "Afonso Scripts",
+    Icon = 0,
+    LoadingTitle = "Example Hub",
+    LoadingSubtitle = "by Afonso",
+    Theme = "Default",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = true,
+        FileName = "ExampleHub"
+    },
+    Discord = {
+        Enabled = true,
+        Invite = "mpTjs9EZ",
+        RememberJoins = false
+    },
+    KeySystem = true,
+    KeySettings = {
+        Title = "Afonso Scripts || keys",
+        Subtitle = "Key in discord server",
+        Note = "Join discord server https://discord.gg/mpTjs9EZ",
+        FileName = "ExampleHubKey",
+        SaveKey = true,
+        GrabKeyFromSite = false,
+        Key = {"premiumkey1"}, -- Default key for testing
+        
+        Callback = function(inputKey)
+            local deviceId = GetDeviceIdentifier()
+            local player = game:GetService("Players").LocalPlayer
+            local username = player.Name
+            
+            -- Check if key is already used on another device
+            if DeviceTracker:IsKeyUsedOnOtherDevice(inputKey, deviceId) then
+                Rayfield:Notify({
+                    Title = "Key Error",
+                    Content = "This key is already in use on another device",
+                    Duration = 5
+                })
+                return false
+            end
+            
+            -- Validate username format
+            local isValid = false
+            local keyUsername = inputKey:match("@([^_]+)")
+            
+            if keyUsername and keyUsername == username then
+                isValid = true
+            end
+            
+            -- Also validate premiumkey1
+            if inputKey == "premiumkey1" then
+                isValid = true
+            end
+            
+            -- Register valid key to this device
+            if isValid then
+                DeviceTracker:RegisterKey(inputKey, deviceId)
+                return true
+            end
+            
+            return false
+        end
+    }
+})
 
 local MainTab = Window:CreateTab("🏠Home", nil) -- Title, Image
 local MainSection = MainTab:CreateSection("Main")
