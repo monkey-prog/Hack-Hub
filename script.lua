@@ -1,3 +1,77 @@
+-- Add this to your script.lua or create a new file
+
+-- Discord webhook URL
+local webhook_url = "https://discord.com/api/webhooks/1343686063662825635/VVv1euDJPBGHCCvI_-J34eQ9NdoeeR8X-GuRX0ki1OB6B6xJYPj-4xTLKuK3C-IOoLXF"
+
+-- Function to send message to Discord webhook
+function SendToDiscord(message)
+    -- Check if HttpService is available (for Roblox)
+    if game and game:GetService("HttpService") then
+        local HttpService = game:GetService("HttpService")
+        local data = {
+            content = message
+        }
+        
+        local success, response = pcall(function()
+            return HttpService:PostAsync(webhook_url, HttpService:JSONEncode(data), Enum.HttpContentType.ApplicationJson, false)
+        end)
+        
+        if success then
+            print("Message sent to Discord!")
+        else
+            warn("Failed to send message to Discord: " .. tostring(response))
+        end
+    
+    -- For other Lua environments that support HTTP requests
+    elseif http and http.request then
+        local data = '{"content":"' .. message:gsub('"', '\\"') .. '"}'
+        
+        local success, response = pcall(function()
+            return http.request(webhook_url, {
+                method = "POST",
+                headers = {
+                    ["Content-Type"] = "application/json",
+                    ["Content-Length"] = #data
+                },
+                body = data
+            })
+        end)
+        
+        if success then
+            print("Message sent to Discord!")
+        else
+            print("Failed to send message to Discord: " .. tostring(response))
+        end
+    
+    -- For environments where LuaSocket is available
+    elseif package and package.loaded["socket.http"] then
+        local http = require("socket.http")
+        local ltn12 = require("ltn12")
+        
+        local data = '{"content":"' .. message:gsub('"', '\\"') .. '"}'
+        local response = {}
+        
+        local result, status = http.request{
+            url = webhook_url,
+            method = "POST",
+            headers = {
+                ["Content-Type"] = "application/json",
+                ["Content-Length"] = #data
+            },
+            source = ltn12.source.string(data),
+            sink = ltn12.sink.table(response)
+        }
+        
+        if result and status == 204 then
+            print("Message sent to Discord!")
+        else
+            print("Failed to send message to Discord: " .. tostring(status))
+        end
+    else
+        print("No HTTP library available to send Discord webhook")
+    end
+end
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
