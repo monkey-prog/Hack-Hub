@@ -1070,7 +1070,7 @@ if not jumpConnection then
 end
 
 -- WalkSpeed slider with simple error handling
-local WalkspeedSlider = MainTab:CreateSlider({
+local Slider = MainTab:CreateSlider({
     Name = "Walkspeed",
     Range = {16, 250},
     Increment = 10,
@@ -1085,7 +1085,7 @@ local WalkspeedSlider = MainTab:CreateSlider({
 })
  
 -- JumpPower slider with simple error handling
-local JumpPowerSlider = MainTab:CreateSlider({
+local Slider = MainTab:CreateSlider({
     Name = "JumpPower",
     Range = {50, 500},
     Increment = 10,
