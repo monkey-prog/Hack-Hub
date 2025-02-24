@@ -1069,11 +1069,7 @@ if not jumpConnection then
     end)
 end
 
--- Store values globally
-local walkspeedValue = 16
-local jumppowerValue = 50
-
--- WalkSpeed slider with error handling
+-- WalkSpeed slider with simple error handling
 local WalkspeedSlider = MainTab:CreateSlider({
     Name = "Walkspeed",
     Range = {16, 250},
@@ -1082,20 +1078,13 @@ local WalkspeedSlider = MainTab:CreateSlider({
     CurrentValue = 16,
     Flag = "WalkspeedSlider",
     Callback = function(Value)
-        walkspeedValue = Value
-        local character = game.Players.LocalPlayer.Character
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                pcall(function()
-                    humanoid.WalkSpeed = Value
-                end)
-            end
-        end
+        pcall(function()
+            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+        end)
     end,
 })
  
--- JumpPower slider with error handling
+-- JumpPower slider with simple error handling
 local JumpPowerSlider = MainTab:CreateSlider({
     Name = "JumpPower",
     Range = {50, 500},
@@ -1104,37 +1093,11 @@ local JumpPowerSlider = MainTab:CreateSlider({
     CurrentValue = 50,
     Flag = "JumpPowerSlider",
     Callback = function(Value)
-        jumppowerValue = Value
-        local character = game.Players.LocalPlayer.Character
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                pcall(function()
-                    humanoid.JumpPower = Value
-                end)
-            end
-        end
+        pcall(function()
+            game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
+        end)
     end,
 })
-
--- Create a separate function for the loop that runs less frequently
-local updateConnection
-if not updateConnection then
-    spawn(function()
-        while wait(0.5) do -- Check every half second instead of every frame
-            local character = game.Players.LocalPlayer.Character
-            if character then
-                local humanoid = character:FindFirstChildOfClass("Humanoid")
-                if humanoid then
-                    pcall(function()
-                        humanoid.WalkSpeed = walkspeedValue
-                        humanoid.JumpPower = jumppowerValue
-                    end)
-                end
-            end
-        end
-    end)
-end
 
 local TeleportTab = Window:CreateTab("🌀Teleport", nil) -- Title, Image
 local TeleportSection = TeleportTab:CreateSection("Teleport")
