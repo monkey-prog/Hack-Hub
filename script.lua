@@ -1046,6 +1046,7 @@ end
    end,
 })
 
+-- Infinite Jump for Arsenal
 local InfiniteJumpEnabled = false
 local Toggle = MainTab:CreateToggle({
     Name = "Infinite Jump",
@@ -1056,35 +1057,42 @@ local Toggle = MainTab:CreateToggle({
     end,
 })
 
--- Set up the jump connection outside and only once
+-- Create jump connection
 local jumpConnection
 if not jumpConnection then
     jumpConnection = game:GetService("UserInputService").JumpRequest:connect(function()
         if InfiniteJumpEnabled then
-            local humanoid = game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass('Humanoid')
-            if humanoid then
-                humanoid:ChangeState("Jumping")
-            end
+            game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass('Humanoid'):ChangeState("Jumping")
         end
     end)
 end
 
--- WalkSpeed slider with simple error handling
+-- Arsenal-specific walkspeed approach
 local Slider = MainTab:CreateSlider({
     Name = "Walkspeed",
     Range = {16, 250},
     Increment = 10,
     Suffix = "Walkspeed",
     CurrentValue = 16,
-    Flag = "WalkspeedSlider",
+    Flag = "WalkSpeedSlider",
     Callback = function(Value)
-        pcall(function()
-            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
-        end)
+        -- For Arsenal, try using the StateChanged method
+        local humanoid = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            -- Hook the state changed event to modify speed when running
+            humanoid.StateChanged:Connect(function(oldState, newState)
+                if newState == Enum.HumanoidStateType.Running then
+                    task.wait()
+                    humanoid.WalkSpeed = Value
+                end
+            end)
+            -- Set initial value
+            humanoid.WalkSpeed = Value
+        end
     end,
 })
- 
--- JumpPower slider with simple error handling
+
+-- Arsenal-specific jump power approach 
 local Slider = MainTab:CreateSlider({
     Name = "JumpPower",
     Range = {50, 500},
@@ -1093,9 +1101,18 @@ local Slider = MainTab:CreateSlider({
     CurrentValue = 50,
     Flag = "JumpPowerSlider",
     Callback = function(Value)
-        pcall(function()
-            game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
-        end)
+        -- Try hooking into the Jumping state
+        local humanoid = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.StateChanged:Connect(function(oldState, newState)
+                if newState == Enum.HumanoidStateType.Jumping then
+                    task.wait()
+                    humanoid.JumpPower = Value
+                end
+            end)
+            -- Set initial value
+            humanoid.JumpPower = Value
+        end
     end,
 })
 
