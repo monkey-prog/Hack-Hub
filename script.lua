@@ -63,7 +63,7 @@ local Window = Rayfield:CreateWindow({
       FileName = "ExampleHubKey",
       SaveKey = true,
       GrabKeyFromSite = false,
-      Key = {"premiumkey1"},
+      Key = {"premiumkey5"},
       CustomKeyValidation = function(key)
          local isValid, message = KeyManager.ValidateKey(key)
          if isValid then
