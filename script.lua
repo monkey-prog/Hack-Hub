@@ -1046,7 +1046,7 @@ end
    end,
 })
 
--- Infinite Jump for Arsenal
+-- For Arsenal specifically:
 local InfiniteJumpEnabled = false
 local Toggle = MainTab:CreateToggle({
     Name = "Infinite Jump",
@@ -1057,64 +1057,50 @@ local Toggle = MainTab:CreateToggle({
     end,
 })
 
--- Create jump connection
-local jumpConnection
-if not jumpConnection then
-    jumpConnection = game:GetService("UserInputService").JumpRequest:connect(function()
-        if InfiniteJumpEnabled then
-            game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass('Humanoid'):ChangeState("Jumping")
+-- Try a more aggressive approach for Arsenal
+game:GetService("UserInputService").JumpRequest:connect(function()
+    if InfiniteJumpEnabled then
+        -- Try direct CFrame manipulation instead
+        local character = game:GetService("Players").LocalPlayer.Character
+        if character then
+            local hrp = character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                hrp.CFrame = hrp.CFrame + Vector3.new(0, 5, 0)
+            end
         end
-    end)
-end
+    end
+end)
 
--- Arsenal-specific walkspeed approach
+-- Try velocity-based approach for walkspeed
+local WalkspeedValue = 16
 local Slider = MainTab:CreateSlider({
     Name = "Walkspeed",
     Range = {16, 250},
     Increment = 10,
     Suffix = "Walkspeed",
     CurrentValue = 16,
-    Flag = "WalkSpeedSlider",
+    Flag = "WalkspeedSlider",
     Callback = function(Value)
-        -- For Arsenal, try using the StateChanged method
-        local humanoid = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            -- Hook the state changed event to modify speed when running
-            humanoid.StateChanged:Connect(function(oldState, newState)
-                if newState == Enum.HumanoidStateType.Running then
-                    task.wait()
-                    humanoid.WalkSpeed = Value
-                end
-            end)
-            -- Set initial value
-            humanoid.WalkSpeed = Value
-        end
+        WalkspeedValue = Value
     end,
 })
 
--- Arsenal-specific jump power approach 
-local Slider = MainTab:CreateSlider({
-    Name = "JumpPower",
-    Range = {50, 500},
-    Increment = 10,
-    Suffix = "JumpPower",
-    CurrentValue = 50,
-    Flag = "JumpPowerSlider",
-    Callback = function(Value)
-        -- Try hooking into the Jumping state
-        local humanoid = game.Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.StateChanged:Connect(function(oldState, newState)
-                if newState == Enum.HumanoidStateType.Jumping then
-                    task.wait()
-                    humanoid.JumpPower = Value
+-- Try a loop that uses velocity manipulation instead
+spawn(function()
+    while wait() do
+        local character = game.Players.LocalPlayer.Character
+        if character and InfiniteJumpEnabled then
+            local hrp = character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local direction = game:GetService("UserInputService"):GetMovementVector()
+                if direction.Magnitude > 0 then
+                    local velocity = direction * WalkspeedValue
+                    hrp.Velocity = Vector3.new(velocity.X, hrp.Velocity.Y, velocity.Z)
                 end
-            end)
-            -- Set initial value
-            humanoid.JumpPower = Value
+            end
         end
-    end,
-})
+    end
+end)
 
 local TeleportTab = Window:CreateTab("🌀Teleport", nil) -- Title, Image
 local TeleportSection = TeleportTab:CreateSection("Teleport")
