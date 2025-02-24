@@ -1,263 +1,37 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- ========== WEBHOOK CONFIGURATION ==========
-local WEBHOOK_URL = "https://discord.com/api/webhooks/1343686063662825635/VVv1euDJPBGHCCvI_-J34eQ9NdoeeR8X-GuRX0ki1OB6B6xJYPj-4xTLKuK3C-IOoLXF"
-
--- ========== KEY DATABASE CONFIGURATION ==========
-local KEY_DATABASE_FILE = "Afonso_UsedKeys.txt"
-local USED_KEYS = {}
-
--- ========== UTILITY FUNCTIONS ==========
--- Function to directly send HTTP requests using any available method
-local function SendHTTPRequest(url, method, headers, body)
-    print("[DEBUG] Attempting to send HTTP request to: " .. url)
-    
-    local success, response
-    
-    -- Try all known HTTP request methods
-    if syn and syn.request then
-        print("[DEBUG] Using syn.request")
-        success, response = pcall(function()
-            return syn.request({
-                Url = url,
-                Method = method,
-                Headers = headers,
-                Body = body
-            })
-        end)
-    elseif http and http.request then
-        print("[DEBUG] Using http.request")
-        success, response = pcall(function()
-            return http.request({
-                Url = url,
-                Method = method,
-                Headers = headers,
-                Body = body
-            })
-        end)
-    elseif request then
-        print("[DEBUG] Using request")
-        success, response = pcall(function()
-            return request({
-                Url = url,
-                Method = method,
-                Headers = headers,
-                Body = body
-            })
-        end)
-    elseif httprequest then
-        print("[DEBUG] Using httprequest")
-        success, response = pcall(function()
-            return httprequest({
-                Url = url,
-                Method = method,
-                Headers = headers,
-                Body = body
-            })
-        end)
-    elseif HTTPPOST then
-        print("[DEBUG] Using HTTPPOST")
-        success, response = pcall(function()
-            return HTTPPOST(url, body, headers)
-        end)
-    else
-        print("[DEBUG] No HTTP request method available")
-        return false, "No HTTP request method available"
-    end
-    
-    if success then
-        print("[DEBUG] HTTP request successful")
-        return true, response
-    else
-        print("[DEBUG] HTTP request failed: " .. tostring(response))
-        return false, response
-    end
-end
-
--- Function to notify Discord via webhook
-local function NotifyDiscord(message)
-    local headers = {
-        ["Content-Type"] = "application/json"
-    }
-    
-    local body = game:GetService("HttpService"):JSONEncode({
-        content = message
-    })
-    
-    print("[DEBUG] Sending webhook with message: " .. message)
-    
-    return SendHTTPRequest(WEBHOOK_URL, "POST", headers, body)
-end
-
--- Load used keys from file
-local function LoadUsedKeys()
-    if not isfile or not readfile then
-        print("[DEBUG] File system functions not available")
-        return
-    end
-    
-    if isfile(KEY_DATABASE_FILE) then
-        print("[DEBUG] Loading keys from file: " .. KEY_DATABASE_FILE)
-        local success, content = pcall(function()
-            return readfile(KEY_DATABASE_FILE)
-        end)
-        
-        if success and content and #content > 0 then
-            local keys = {}
-            for line in content:gmatch("[^\r\n]+") do
-                local key = line:match("^%s*(.-)%s*$") -- Trim whitespace
-                if key and #key > 0 then
-                    keys[key] = true
-                    print("[DEBUG] Loaded key: " .. key)
-                end
-            end
-            USED_KEYS = keys
-            print("[DEBUG] Total keys loaded: " .. tostring(table.count(keys) or 0))
-        else
-            print("[DEBUG] Failed to load keys or file is empty")
-        end
-    else
-        print("[DEBUG] Key database file does not exist yet")
-    end
-end
-
--- Save used keys to file (append new key)
-local function SaveUsedKey(key)
-    if not writefile and not appendfile then
-        print("[DEBUG] File system write functions not available")
-        return false
-    end
-    
-    print("[DEBUG] Saving key to database: " .. key)
-    
-    local success
-    
-    if appendfile and isfile and isfile(KEY_DATABASE_FILE) then
-        print("[DEBUG] Appending to existing file")
-        success = pcall(function()
-            appendfile(KEY_DATABASE_FILE, key .. "\n")
-        end)
-    else
-        print("[DEBUG] Creating new file")
-        success = pcall(function()
-            writefile(KEY_DATABASE_FILE, key .. "\n")
-        end)
-    end
-    
-    if success then
-        print("[DEBUG] Key saved successfully")
-        return true
-    else
-        print("[DEBUG] Failed to save key")
-        return false
-    end
-end
-
--- Check if key has been used
-local function IsKeyUsed(key)
-    return USED_KEYS[key] == true
-end
-
--- Mark key as used
-local function MarkKeyAsUsed(key)
-    USED_KEYS[key] = true
-    SaveUsedKey(key)
-end
-
--- ========== INITIALIZATION ==========
--- Load keys when script starts
-LoadUsedKeys()
-
--- ========== RAYFIELD UI SETUP ==========
 local Window = Rayfield:CreateWindow({
-    Name = "Afonso Scripts",
-    Icon = 0,
-    LoadingTitle = "Example Hub",
-    LoadingSubtitle = "by Afonso",
-    Theme = "Dark Blue",
-    DisableRayfieldPrompts = false,
-    DisableBuildWarnings = false,
-    ConfigurationSaving = {
-        Enabled = true,
-        FolderName = true,
-        FileName = "ExampleHub"
-    },
-    Discord = {
-        Enabled = true,
-        Invite = "mpTjs9EZ",
-        RememberJoins = true
-    },
-    KeySystem = true,
-    KeySettings = {
-        Title = "Afonso Scripts || keys",
-        Subtitle = "Link in discord server",
-        Note = "Join discord server from misc tab",
-        FileName = "ExampleHubKey",
-        SaveKey = false,
-        GrabKeyFromSite = false,
-        Key = {"premiumkey2"}, -- This can be replaced with your actual keys
-        
-        Callback = function(inputKey)
-            print("[DEBUG] Key entered: " .. inputKey)
-            
-            -- Get user info
-            local username = game:GetService("Players").LocalPlayer.Name
-            local userId = game:GetService("Players").LocalPlayer.UserId
-            
-            print("[DEBUG] User: " .. username .. " (ID: " .. userId .. ")")
-            
-            -- Check if key is already used
-            if IsKeyUsed(inputKey) then
-                print("[DEBUG] Key already used, rejecting")
-                Rayfield:Notify({
-                    Title = "Key Error",
-                    Content = "This key has already been used and cannot be used again",
-                    Duration = 5
-                })
-                return false
-            end
-            
-            -- Check if key is valid
-            local validKeys = Rayfield.Options.KeySettings.Key
-            local isValid = false
-            
-            for _, validKey in ipairs(validKeys) do
-                if inputKey == validKey then
-                    isValid = true
-                    break
-                end
-            end
-            
-            if not isValid then
-                print("[DEBUG] Invalid key, rejecting")
-                return false
-            end
-            
-            -- Key is valid and unused, mark it as used
-            print("[DEBUG] Valid key, marking as used")
-            MarkKeyAsUsed(inputKey)
-            
-            -- Send webhook notification
-            local message = "Key Used: " .. inputKey .. " | Username: @" .. username .. " | UserID: " .. userId
-            local webhookSuccess, webhookResponse = NotifyDiscord(message)
-            
-            if webhookSuccess then
-                print("[DEBUG] Webhook sent successfully")
-            else
-                print("[DEBUG] Webhook failed: " .. tostring(webhookResponse))
-                
-                -- Try alternative webhook methods
-                print("[DEBUG] Trying alternative webhook method")
-                pcall(function()
-                    local formattedMessage = game:HttpGet("https://webhook.lewisakura.moe/api/webhook?content=" .. game:GetService("HttpService"):UrlEncode(message) .. "&url=" .. game:GetService("HttpService"):UrlEncode(WEBHOOK_URL))
-                    print("[DEBUG] Alternative webhook result: " .. formattedMessage)
-                end)
-            end
-            
-            -- Allow access regardless of webhook success
-            return true
-        end
-    }
+   Name = "Afonso Scripts",
+   Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
+   LoadingTitle = "Example Hub",
+   LoadingSubtitle = "by Afonso",
+   Theme = "Dark Blue", -- Check https://docs.sirius.menu/rayfield/configuration/themes
+
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
+
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = true, -- Create a custom folder for your hub/game
+      FileName = "ExampleHub"
+   },
+
+   Discord = {
+      Enabled = true, -- Prompt the user to join your Discord server if their executor supports it
+      Invite = "https://discord.gg/mpTjs9EZ", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
+      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
+   },
+
+   KeySystem = true, -- Set this to true to use our key system
+   KeySettings = {
+      Title = "Afonso Scripts || keys",
+      Subtitle = "Link in discord server",
+      Note = "Join discord server from misc tab", -- Use this to tell the user how to get a key
+      FileName = "ExampleHubKey", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+      Key = {"premiumkey1"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+   }
 })
 
 local MainTab = Window:CreateTab("🏠Home", nil) -- Title, Image
