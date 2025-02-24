@@ -1,27 +1,25 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+-- Load the Key Manager
+local KeyManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/YourUsername/YourRepo/main/key_manager.lua'))()
 
 local Window = Rayfield:CreateWindow({
    Name = "Afonso Scripts",
    Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
    LoadingTitle = "Example Hub",
    LoadingSubtitle = "by Afonso",
-   Theme = "Theme", -- Check https://docs.sirius.menu/rayfield/configuration/themes
-
+   Theme = "Dark Blue", -- Check https://docs.sirius.menu/rayfield/configuration/themes
    DisableRayfieldPrompts = false,
    DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
-
    ConfigurationSaving = {
       Enabled = true,
       FolderName = true, -- Create a custom folder for your hub/game
       FileName = "ExampleHub"
    },
-
    Discord = {
       Enabled = true, -- Prompt the user to join your Discord server if their executor supports it
-      Invite = "https://discord.gg/mpTjs9EZ", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
+      Invite = "mpTjs9EZ", -- The Discord invite code, do not include discord.gg/
       RememberJoins = true -- Set this to false to make them join the discord every time they load it up
    },
-
    KeySystem = true, -- Set this to true to use our key system
    KeySettings = {
       Title = "Afonso Scripts || keys",
@@ -30,7 +28,16 @@ local Window = Rayfield:CreateWindow({
       FileName = "ExampleHubKey", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
       SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
       GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
-      Key = {"premiumkey1"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+      Key = {"premiumkey1"}, -- List of keys that will be accepted by the system
+      CustomKeyValidation = function(key)
+         -- Use our custom key validation function
+         local isValid, message = KeyManager.ValidateKey(key)
+         if isValid then
+            -- Mark the key as used if it's valid
+            KeyManager.UseKey(key)
+         end
+         return isValid, message
+      end
    }
 })
 
@@ -1165,6 +1172,21 @@ local Toggle = TeleportTab:CreateToggle({
 
 local MiscTab = Window:CreateTab("📢Misc", nil) -- Title, Image
 local MiscSection = MiscTab:CreateSection("Misc")
+
+local Button = MiscTab:CreateButton({
+   Name = "Join Discord",
+   Info = "Click to join our Discord server", -- Placeholder for the help section
+   Interact = "Join Discord",
+   Callback = function()
+      setclipboard("https://discord.gg/mpTjs9EZ")
+      Rayfield:Notify({
+         Title = "Discord Invite",
+         Content = "Discord invite copied to clipboard!",
+         Duration = 3,
+         Image = nil,
+      })
+   end,
+})
 
 local Button = MiscTab:CreateButton({
     Name = "Rejoin",
