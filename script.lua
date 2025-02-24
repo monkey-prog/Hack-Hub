@@ -86,7 +86,7 @@ local Window = Rayfield:CreateWindow({
       Subtitle = "Link in discord server",
       Note = "Join discord server from misc tab",
       FileName = "ExampleHubKey",
-      SaveKey = true,
+      SaveKey = false,
       GrabKeyFromSite = false,
       Key = {"premiumkey2"}, -- This can be replaced with your actual keys
       
