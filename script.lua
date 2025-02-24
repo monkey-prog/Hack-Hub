@@ -88,7 +88,7 @@ local Window = Rayfield:CreateWindow({
       FileName = "ExampleHubKey",
       SaveKey = true,
       GrabKeyFromSite = false,
-      Key = {"premiumkey1"}, -- This can be replaced with your actual keys
+      Key = {"premiumkey2"}, -- This can be replaced with your actual keys
       
       Callback = function(inputKey)
           local deviceId = GetDeviceIdentifier()
