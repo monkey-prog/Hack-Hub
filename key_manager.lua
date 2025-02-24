@@ -1,4 +1,3 @@
--- key_manager.lua
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
