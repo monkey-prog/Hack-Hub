@@ -1,76 +1,36 @@
--- Load Rayfield UI library
-local success, Rayfield = pcall(function()
-    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
-end)
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
-if not success then
-    warn("Failed to load Rayfield UI: ", Rayfield)
-    return
-end
-
--- Create a function to handle the KeyManager
-local KeyManager
-local function loadKeyManager()
-    -- Try to load from GitHub first
-    local success, result = pcall(function()
-        return loadstring(game:HttpGet('https://raw.githubusercontent.com/monkey-prog/Hack-Hub/main/key_manager.lua'))()
-    end)
-    
-    if success then
-        return result
-    else
-        warn("Failed to load KeyManager from GitHub: ", result)
-        
-        -- Define a minimal local version as fallback
-        local fallbackManager = {}
-        fallbackManager.ValidateKey = function(key)
-            return key == "premiumkey1", "Key validation"
-        end
-        fallbackManager.UseKey = function(key)
-            return true
-        end
-        return fallbackManager
-    end
-end
-
--- Load the KeyManager with error handling
-KeyManager = loadKeyManager()
-
--- Now create the window
 local Window = Rayfield:CreateWindow({
    Name = "Afonso Scripts",
-   Icon = 0,
+   Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
    LoadingTitle = "Example Hub",
    LoadingSubtitle = "by Afonso",
-   Theme = "Dark Blue",
+   Theme = "Dark Blue", -- Check https://docs.sirius.menu/rayfield/configuration/themes
+
    DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false,
+   DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
+
    ConfigurationSaving = {
       Enabled = true,
-      FolderName = true,
+      FolderName = true, -- Create a custom folder for your hub/game
       FileName = "ExampleHub"
    },
+
    Discord = {
-      Enabled = true,
-      Invite = "mpTjs9EZ",
-      RememberJoins = true
+      Enabled = true, -- Prompt the user to join your Discord server if their executor supports it
+      Invite = "https://discord.gg/mpTjs9EZ", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
+      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
    },
-   KeySystem = true,
+
+   KeySystem = true, -- Set this to true to use our key system
    KeySettings = {
       Title = "Afonso Scripts || keys",
       Subtitle = "Link in discord server",
-      Note = "Join discord server from misc tab",
-      FileName = "ExampleHubKey",
-      SaveKey = false,
-      GrabKeyFromSite = false,
-      Key = {"premiumkey5"},
-      CustomKeyValidation = function(key)
-         local isValid, message = KeyManager.ValidateKey(key)
-         if isValid then
-            pcall(function() KeyManager.UseKey(key) end)
-         end
-         return isValid, message
-      end
+      Note = "Join discord server from misc tab", -- Use this to tell the user how to get a key
+      FileName = "ExampleHubKey", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+      Key = {"premiumkey1"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
    }
 })
 
