@@ -1,6 +1,6 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 -- Load the Key Manager
-local KeyManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/YourUsername/YourRepo/main/key_manager.lua'))()
+local KeyManager = loadstring(game:HttpGet('https://github.com/monkey-prog/Hack-Hub/edit/main/key_manager.lua'))()
 
 local Window = Rayfield:CreateWindow({
    Name = "Afonso Scripts",
