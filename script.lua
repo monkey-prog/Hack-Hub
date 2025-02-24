@@ -1,12 +1,45 @@
 -- Load Rayfield UI library
-local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+local success, Rayfield = pcall(function()
+    return loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+end)
 
--- Load the Key Manager (using the raw content URL)
-local KeyManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/monkey-prog/Hack-Hub/main/key_manager.lua'))()
+if not success then
+    warn("Failed to load Rayfield UI: ", Rayfield)
+    return
+end
 
+-- Create a function to handle the KeyManager
+local KeyManager
+local function loadKeyManager()
+    -- Try to load from GitHub first
+    local success, result = pcall(function()
+        return loadstring(game:HttpGet('https://raw.githubusercontent.com/monkey-prog/Hack-Hub/main/key_manager.lua'))()
+    end)
+    
+    if success then
+        return result
+    else
+        warn("Failed to load KeyManager from GitHub: ", result)
+        
+        -- Define a minimal local version as fallback
+        local fallbackManager = {}
+        fallbackManager.ValidateKey = function(key)
+            return key == "premiumkey1", "Key validation"
+        end
+        fallbackManager.UseKey = function(key)
+            return true
+        end
+        return fallbackManager
+    end
+end
+
+-- Load the KeyManager with error handling
+KeyManager = loadKeyManager()
+
+-- Now create the window
 local Window = Rayfield:CreateWindow({
    Name = "Afonso Scripts",
-   Icon = 0, -- Icon in Topbar
+   Icon = 0,
    LoadingTitle = "Example Hub",
    LoadingSubtitle = "by Afonso",
    Theme = "Dark Blue",
@@ -14,12 +47,12 @@ local Window = Rayfield:CreateWindow({
    DisableBuildWarnings = false,
    ConfigurationSaving = {
       Enabled = true,
-      FolderName = true, -- Create a custom folder for your hub/game
+      FolderName = true,
       FileName = "ExampleHub"
    },
    Discord = {
       Enabled = true,
-      Invite = "mpTjs9EZ", -- Discord invite code
+      Invite = "mpTjs9EZ",
       RememberJoins = true
    },
    KeySystem = true,
@@ -30,13 +63,11 @@ local Window = Rayfield:CreateWindow({
       FileName = "ExampleHubKey",
       SaveKey = true,
       GrabKeyFromSite = false,
-      Key = {"premiumkey1"}, -- List of accepted keys
+      Key = {"premiumkey1"},
       CustomKeyValidation = function(key)
-         -- Use our custom key validation function
          local isValid, message = KeyManager.ValidateKey(key)
          if isValid then
-            -- Mark the key as used if it's valid
-            KeyManager.UseKey(key)
+            pcall(function() KeyManager.UseKey(key) end)
          end
          return isValid, message
       end
