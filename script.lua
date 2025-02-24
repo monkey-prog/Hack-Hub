@@ -1,34 +1,36 @@
+-- Load Rayfield UI library
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
--- Load the Key Manager
-local KeyManager = loadstring(game:HttpGet('https://github.com/monkey-prog/Hack-Hub/edit/main/key_manager.lua'))()
+
+-- Load the Key Manager (using the raw content URL)
+local KeyManager = loadstring(game:HttpGet('https://raw.githubusercontent.com/monkey-prog/Hack-Hub/main/key_manager.lua'))()
 
 local Window = Rayfield:CreateWindow({
    Name = "Afonso Scripts",
-   Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
+   Icon = 0, -- Icon in Topbar
    LoadingTitle = "Example Hub",
    LoadingSubtitle = "by Afonso",
-   Theme = "Dark Blue", -- Check https://docs.sirius.menu/rayfield/configuration/themes
+   Theme = "Dark Blue",
    DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
+   DisableBuildWarnings = false,
    ConfigurationSaving = {
       Enabled = true,
       FolderName = true, -- Create a custom folder for your hub/game
       FileName = "ExampleHub"
    },
    Discord = {
-      Enabled = true, -- Prompt the user to join your Discord server if their executor supports it
-      Invite = "mpTjs9EZ", -- The Discord invite code, do not include discord.gg/
-      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
+      Enabled = true,
+      Invite = "mpTjs9EZ", -- Discord invite code
+      RememberJoins = true
    },
-   KeySystem = true, -- Set this to true to use our key system
+   KeySystem = true,
    KeySettings = {
       Title = "Afonso Scripts || keys",
       Subtitle = "Link in discord server",
-      Note = "Join discord server from misc tab", -- Use this to tell the user how to get a key
-      FileName = "ExampleHubKey", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
-      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
-      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
-      Key = {"premiumkey1"}, -- List of keys that will be accepted by the system
+      Note = "Join discord server from misc tab",
+      FileName = "ExampleHubKey",
+      SaveKey = true,
+      GrabKeyFromSite = false,
+      Key = {"premiumkey1"}, -- List of accepted keys
       CustomKeyValidation = function(key)
          -- Use our custom key validation function
          local isValid, message = KeyManager.ValidateKey(key)
