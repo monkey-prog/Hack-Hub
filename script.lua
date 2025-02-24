@@ -21,16 +21,36 @@ local Window = Rayfield:CreateWindow({
       Invite = "https://discord.gg/mpTjs9EZ", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
       RememberJoins = false -- Set this to false to make them join the discord every time they load it up
    },
-
-   KeySystem = true, -- Set this to true to use our key system
+      
+   KeySystem = true,
    KeySettings = {
       Title = "Afonso Scripts || keys",
       Subtitle = "Key in discord server",
-      Note = "Join discord server https://discord.gg/mpTjs9EZ ", -- Use this to tell the user how to get a key
-      FileName = "ExampleHubKey", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
-      SaveKey = false, -- The user's key will be saved, but if you change the key, they will be unable to use your script
-      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
-      Key = {"oello"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("oello")
+      Note = "Join discord server https://discord.gg/mpTjs9EZ",
+      FileName = "ExampleHubKey",
+      SaveKey = true, -- The user's key will be saved
+      GrabKeyFromSite = false,
+      Key = {"premiumkey1"}, -- List of valid keys
+      
+      -- Custom key validation function
+      Callback = function(inputKey)
+         local player = game.Players.LocalPlayer
+         local username = player.Name
+         
+         -- Check if key matches the username format
+         local keyUsername = inputKey:match("@([^_]+)")
+         if keyUsername and keyUsername == username then
+            -- Key validated - here you would mark it as used on your server
+            return true
+         end
+         
+         -- Also allow premiumkey1 for testing
+         if inputKey == "premiumkey1" then
+            return true
+         end
+         
+         return false
+      end
    }
 })
 
