@@ -22,37 +22,72 @@ local Window = Rayfield:CreateWindow({
       RememberJoins = false -- Set this to false to make them join the discord every time they load it up
    },
       
-   KeySystem = true,
-   KeySettings = {
-      Title = "Afonso Scripts || keys",
-      Subtitle = "Key in discord server",
-      Note = "Join discord server https://discord.gg/mpTjs9EZ",
-      FileName = "ExampleHubKey",
-      SaveKey = true, -- The user's key will be saved
-      GrabKeyFromSite = false,
-      Key = {"premiumkey1"}, -- List of valid keys
+KeySystem = true,
+KeySettings = {
+   Title = "Afonso Scripts || keys",
+   Subtitle = "Key in discord server",
+   Note = "Join discord server https://discord.gg/mpTjs9EZ",
+   FileName = "ExampleHubKey",
+   SaveKey = true, -- The user's key will be saved
+   GrabKeyFromSite = false,
+   Key = {"premiumkey1"}, -- List of valid keys
+   
+   -- Custom key validation function
+   Callback = function(inputKey)
+      local player = game.Players.LocalPlayer
+      local username = player.Name
+      local hwid = game:GetService("RbxAnalyticsService"):GetClientId() -- Get unique device identifier
       
-      -- Custom key validation function
-      Callback = function(inputKey)
-         local player = game.Players.LocalPlayer
-         local username = player.Name
-         
-         -- Check if key matches the username format
-         local keyUsername = inputKey:match("@([^_]+)")
-         if keyUsername and keyUsername == username then
-            -- Key validated - here you would mark it as used on your server
-            return true
+      -- Create a filename for device tracking
+      local deviceFile = "AfonsoScripts_KeyDevices.json"
+      
+      -- Try to load existing device data
+      local usedDevices = {}
+      local success, result = pcall(function()
+         if isfile(deviceFile) then
+            return game:GetService("HttpService"):JSONDecode(readfile(deviceFile))
          end
-         
-         -- Also allow premiumkey1 for testing
-         if inputKey == "premiumkey1" then
-            return true
-         end
-         
-         return false
+         return {}
+      end)
+      
+      if success then
+         usedDevices = result
       end
-   }
-})
+      
+      -- Check if key is already used on another device
+      if usedDevices[inputKey] and usedDevices[inputKey] ~= hwid then
+         return false -- Key already used on another device
+      end
+      
+      -- Validate key format or use premiumkey1
+      local isValid = false
+      
+      -- Check username format
+      local keyUsername = inputKey:match("@([^_]+)")
+      if keyUsername and keyUsername == username then
+         isValid = true
+      end
+      
+      -- Check premiumkey1
+      if inputKey == "premiumkey1" then
+         isValid = true
+      end
+      
+      -- If valid, register this device as using this key
+      if isValid then
+         usedDevices[inputKey] = hwid
+         
+         -- Save the updated device registry
+         pcall(function()
+            writefile(deviceFile, game:GetService("HttpService"):JSONEncode(usedDevices))
+         end)
+         
+         return true
+      end
+      
+      return false
+   end
+}
 
 local MainTab = Window:CreateTab("🏠Home", nil) -- Title, Image
 local MainSection = MainTab:CreateSection("Main")
