@@ -1046,31 +1046,38 @@ end
    end,
 })
 
+local InfiniteJumpEnabled = false
+
 local Toggle = MainTab:CreateToggle({
     Name = "Infinite Jump",
     CurrentValue = false,
     Flag = "InfJump",
     Callback = function(Value)
-        InfiniteJumpEnabled = Value -- Use the actual toggle value
+        InfiniteJumpEnabled = Value
     end,
 })
 
--- Set up the jump connection outside the toggle callback
-game:GetService("UserInputService").JumpRequest:connect(function()
-    if InfiniteJumpEnabled then
-        game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass('Humanoid'):ChangeState("Jumping")
-    end
-end)
+-- Set up the jump connection outside and only once
+local jumpConnection
+if not jumpConnection then
+    jumpConnection = game:GetService("UserInputService").JumpRequest:connect(function()
+        if InfiniteJumpEnabled then
+            game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass('Humanoid'):ChangeState("Jumping")
+        end
+    end)
+end
 
 local WalkspeedSlider = MainTab:CreateSlider({
     Name = "Walkspeed",
     Range = {16, 250},
     Increment = 10,
     Suffix = "Walkspeed",
-    CurrentValue = 16, -- Set to default walking speed
-    Flag = "WalkspeedSlider", -- Changed flag name
+    CurrentValue = 16,
+    Flag = "WalkspeedSlider",
     Callback = function(Value)
-        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+        end
     end,
 })
  
@@ -1079,10 +1086,12 @@ local JumpPowerSlider = MainTab:CreateSlider({
     Range = {50, 500},
     Increment = 10,
     Suffix = "JumpPower",
-    CurrentValue = 50, -- Changed to match minimum range
-    Flag = "JumpPowerSlider", -- Changed flag name
+    CurrentValue = 50,
+    Flag = "JumpPowerSlider",
     Callback = function(Value)
-        game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
+        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+            game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
+        end
     end,
 })
 
