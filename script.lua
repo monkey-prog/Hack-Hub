@@ -1046,43 +1046,45 @@ end
    end,
 })
 
- local Toggle = MainTab:CreateToggle({
+local Toggle = MainTab:CreateToggle({
     Name = "Infinite Jump",
     CurrentValue = false,
-    Flag = "InfJump", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
-    Callback = function(InfiniteJumpEnabled)
-        local InfiniteJumpEnabled = true
-        game:GetService("UserInputService").JumpRequest:connect(function()
-            if InfiniteJumpEnabled then
-                game:GetService"Players".LocalPlayer.Character:FindFirstChildOfClass'Humanoid':ChangeState("Jumping")
-            end
-        end)
+    Flag = "InfJump",
+    Callback = function(Value)
+        InfiniteJumpEnabled = Value -- Use the actual toggle value
     end,
- })
+})
 
- local Slider = MainTab:CreateSlider({
+-- Set up the jump connection outside the toggle callback
+game:GetService("UserInputService").JumpRequest:connect(function()
+    if InfiniteJumpEnabled then
+        game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass('Humanoid'):ChangeState("Jumping")
+    end
+end)
+
+local WalkspeedSlider = MainTab:CreateSlider({
     Name = "Walkspeed",
     Range = {16, 250},
     Increment = 10,
     Suffix = "Walkspeed",
-    CurrentValue = 10,
-    Flag = "Slider1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
-    Callback = function(v)
-        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = v
+    CurrentValue = 16, -- Set to default walking speed
+    Flag = "WalkspeedSlider", -- Changed flag name
+    Callback = function(Value)
+        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
     end,
- })
+})
  
- local Slider = MainTab:CreateSlider({
+local JumpPowerSlider = MainTab:CreateSlider({
     Name = "JumpPower",
     Range = {50, 500},
     Increment = 10,
     Suffix = "JumpPower",
-    CurrentValue = 10,
-    Flag = "Slider1", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
-    Callback = function(v)
-        game.Players.LocalPlayer.Character.Humanoid.JumpPower = v
+    CurrentValue = 50, -- Changed to match minimum range
+    Flag = "JumpPowerSlider", -- Changed flag name
+    Callback = function(Value)
+        game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
     end,
- })
+})
 
 local TeleportTab = Window:CreateTab("🌀Teleport", nil) -- Title, Image
 local TeleportSection = TeleportTab:CreateSection("Teleport")
