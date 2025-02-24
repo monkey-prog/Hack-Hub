@@ -1047,7 +1047,6 @@ end
 })
 
 local InfiniteJumpEnabled = false
-
 local Toggle = MainTab:CreateToggle({
     Name = "Infinite Jump",
     CurrentValue = false,
@@ -1062,11 +1061,15 @@ local jumpConnection
 if not jumpConnection then
     jumpConnection = game:GetService("UserInputService").JumpRequest:connect(function()
         if InfiniteJumpEnabled then
-            game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass('Humanoid'):ChangeState("Jumping")
+            local humanoid = game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass('Humanoid')
+            if humanoid then
+                humanoid:ChangeState("Jumping")
+            end
         end
     end)
 end
 
+-- WalkSpeed slider with error handling
 local WalkspeedSlider = MainTab:CreateSlider({
     Name = "Walkspeed",
     Range = {16, 250},
@@ -1075,12 +1078,20 @@ local WalkspeedSlider = MainTab:CreateSlider({
     CurrentValue = 16,
     Flag = "WalkspeedSlider",
     Callback = function(Value)
-        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = Value
+        local character = game.Players.LocalPlayer.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                -- Use pcall to prevent callback errors
+                pcall(function()
+                    humanoid.WalkSpeed = Value
+                end)
+            end
         end
     end,
 })
  
+-- JumpPower slider with error handling
 local JumpPowerSlider = MainTab:CreateSlider({
     Name = "JumpPower",
     Range = {50, 500},
@@ -1089,11 +1100,48 @@ local JumpPowerSlider = MainTab:CreateSlider({
     CurrentValue = 50,
     Flag = "JumpPowerSlider",
     Callback = function(Value)
-        if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
-            game.Players.LocalPlayer.Character.Humanoid.JumpPower = Value
+        local character = game.Players.LocalPlayer.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                -- Use pcall to prevent callback errors
+                pcall(function()
+                    humanoid.JumpPower = Value
+                end)
+            end
         end
     end,
 })
+
+-- Optional: Add a loop to maintain the values if the game resets them
+local runService = game:GetService("RunService")
+local walkspeedValue = 16
+local jumppowerValue = 50
+
+WalkspeedSlider:OnChanged(function(Value)
+    walkspeedValue = Value
+end)
+
+JumpPowerSlider:OnChanged(function(Value)
+    jumppowerValue = Value
+end)
+
+runService.Heartbeat:Connect(function()
+    local character = game.Players.LocalPlayer.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            pcall(function()
+                if humanoid.WalkSpeed ~= walkspeedValue then
+                    humanoid.WalkSpeed = walkspeedValue
+                end
+                if humanoid.JumpPower ~= jumppowerValue then
+                    humanoid.JumpPower = jumppowerValue
+                end
+            end)
+        end
+    end
+end)
 
 local TeleportTab = Window:CreateTab("🌀Teleport", nil) -- Title, Image
 local TeleportSection = TeleportTab:CreateSection("Teleport")
