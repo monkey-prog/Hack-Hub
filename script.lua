@@ -1,257 +1,263 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- Discord webhook URL - Updated to your specific channel
-local WebhookURL = "https://discord.com/api/webhooks/1343686063662825635/VVv1euDJPBGHCCvI_-J34eQ9NdoeeR8X-GuRX0ki1OB6B6xJYPj-4xTLKuK3C-IOoLXF"
+-- ========== WEBHOOK CONFIGURATION ==========
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1343686063662825635/VVv1euDJPBGHCCvI_-J34eQ9NdoeeR8X-GuRX0ki1OB6B6xJYPj-4xTLKuK3C-IOoLXF"
 
--- Function to get a reliable device identifier
-local function GetDeviceIdentifier()
-    local result = ""
-    
-    -- Try multiple methods to ensure we get a device ID
-    pcall(function()
-        if syn then
-            result = syn.cache_id or tostring(syn.request({Url = "https://httpbin.org/get"}).Body)
-        elseif identifyexecutor then
-            result = tostring(identifyexecutor())
-        elseif game:GetService("RbxAnalyticsService") then
-            result = tostring(game:GetService("RbxAnalyticsService"):GetClientId())
-        else
-            -- Last resort: Create a unique ID based on hardware info
-            local hwid = {}
-            for i, v in pairs(game:GetService("Players").LocalPlayer:GetAttributes()) do
-                table.insert(hwid, tostring(v))
-            end
-            result = table.concat(hwid, "-") .. tostring(game:GetService("Players").LocalPlayer.UserId)
-        end
-    end)
-    
-    return result
-end
+-- ========== KEY DATABASE CONFIGURATION ==========
+local KEY_DATABASE_FILE = "Afonso_UsedKeys.txt"
+local USED_KEYS = {}
 
--- Function to send Discord webhook with simple text message
-local function SendWebhookNotification(key, username, deviceId)
-    -- Direct debug output to console
-    print("Sending webhook notification...")
+-- ========== UTILITY FUNCTIONS ==========
+-- Function to directly send HTTP requests using any available method
+local function SendHTTPRequest(url, method, headers, body)
+    print("[DEBUG] Attempting to send HTTP request to: " .. url)
     
-    local HttpService = game:GetService("HttpService")
-    local Players = game:GetService("Players")
-    
-    -- Get player information
-    local player = Players.LocalPlayer
-    local playerName = player and player.Name or "Unknown"
-    local userId = player and player.UserId or 0
-    
-    -- Create simple message text
-    local messageContent = string.format("Key Used: %s | Username: @%s | UserID: %s | DeviceID: %s", 
-        key, playerName, userId, deviceId)
-    
-    -- Prepare webhook data - as simple as possible
-    local data = {
-        content = messageContent
-    }
-    
-    local jsonData = HttpService:JSONEncode(data)
-    print("Webhook data prepared:", jsonData)
-    
-    -- Send webhook with better error handling
     local success, response
     
-    -- Try all possible request methods
+    -- Try all known HTTP request methods
     if syn and syn.request then
-        print("Using syn.request")
+        print("[DEBUG] Using syn.request")
         success, response = pcall(function()
             return syn.request({
-                Url = WebhookURL,
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Body = jsonData
+                Url = url,
+                Method = method,
+                Headers = headers,
+                Body = body
             })
         end)
     elseif http and http.request then
-        print("Using http.request")
+        print("[DEBUG] Using http.request")
         success, response = pcall(function()
             return http.request({
-                Url = WebhookURL,
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Body = jsonData
+                Url = url,
+                Method = method,
+                Headers = headers,
+                Body = body
             })
         end)
     elseif request then
-        print("Using request")
+        print("[DEBUG] Using request")
         success, response = pcall(function()
             return request({
-                Url = WebhookURL,
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Body = jsonData
+                Url = url,
+                Method = method,
+                Headers = headers,
+                Body = body
             })
         end)
     elseif httprequest then
-        print("Using httprequest")
+        print("[DEBUG] Using httprequest")
         success, response = pcall(function()
             return httprequest({
-                Url = WebhookURL,
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/json"
-                },
-                Body = jsonData
+                Url = url,
+                Method = method,
+                Headers = headers,
+                Body = body
             })
         end)
+    elseif HTTPPOST then
+        print("[DEBUG] Using HTTPPOST")
+        success, response = pcall(function()
+            return HTTPPOST(url, body, headers)
+        end)
     else
-        print("No compatible request method found")
-        success = false
+        print("[DEBUG] No HTTP request method available")
+        return false, "No HTTP request method available"
     end
     
-    -- Log result
     if success then
-        print("Webhook sent successfully:", response)
+        print("[DEBUG] HTTP request successful")
+        return true, response
     else
-        print("Failed to send webhook:", response)
+        print("[DEBUG] HTTP request failed: " .. tostring(response))
+        return false, response
+    end
+end
+
+-- Function to notify Discord via webhook
+local function NotifyDiscord(message)
+    local headers = {
+        ["Content-Type"] = "application/json"
+    }
+    
+    local body = game:GetService("HttpService"):JSONEncode({
+        content = message
+    })
+    
+    print("[DEBUG] Sending webhook with message: " .. message)
+    
+    return SendHTTPRequest(WEBHOOK_URL, "POST", headers, body)
+end
+
+-- Load used keys from file
+local function LoadUsedKeys()
+    if not isfile or not readfile then
+        print("[DEBUG] File system functions not available")
+        return
     end
     
-    return success
-end
-
--- Global key storage with file system
-_G.AfonsoKeyStorage = _G.AfonsoKeyStorage or {
-    FileName = "AfonsoScripts_UsedKeys_Global.dat",
-    UsedKeys = {}
-}
-
--- Load existing used keys data (from global storage first, then from file as backup)
-if not next(_G.AfonsoKeyStorage.UsedKeys) then
-    pcall(function()
-        if readfile and isfile and isfile(_G.AfonsoKeyStorage.FileName) then
-            local success, data = pcall(function()
-                return game:GetService("HttpService"):JSONDecode(readfile(_G.AfonsoKeyStorage.FileName))
-            end)
-            if success then
-                _G.AfonsoKeyStorage.UsedKeys = data
-                print("Loaded used keys from file:", #data)
+    if isfile(KEY_DATABASE_FILE) then
+        print("[DEBUG] Loading keys from file: " .. KEY_DATABASE_FILE)
+        local success, content = pcall(function()
+            return readfile(KEY_DATABASE_FILE)
+        end)
+        
+        if success and content and #content > 0 then
+            local keys = {}
+            for line in content:gmatch("[^\r\n]+") do
+                local key = line:match("^%s*(.-)%s*$") -- Trim whitespace
+                if key and #key > 0 then
+                    keys[key] = true
+                    print("[DEBUG] Loaded key: " .. key)
+                end
             end
+            USED_KEYS = keys
+            print("[DEBUG] Total keys loaded: " .. tostring(table.count(keys) or 0))
+        else
+            print("[DEBUG] Failed to load keys or file is empty")
         end
-    end)
+    else
+        print("[DEBUG] Key database file does not exist yet")
+    end
 end
 
--- Save used keys
-local function SaveUsedKeys()
-    pcall(function()
-        if writefile then
-            writefile(_G.AfonsoKeyStorage.FileName, game:GetService("HttpService"):JSONEncode(_G.AfonsoKeyStorage.UsedKeys))
-            print("Saved used keys to file")
-        end
-    end)
+-- Save used keys to file (append new key)
+local function SaveUsedKey(key)
+    if not writefile and not appendfile then
+        print("[DEBUG] File system write functions not available")
+        return false
+    end
+    
+    print("[DEBUG] Saving key to database: " .. key)
+    
+    local success
+    
+    if appendfile and isfile and isfile(KEY_DATABASE_FILE) then
+        print("[DEBUG] Appending to existing file")
+        success = pcall(function()
+            appendfile(KEY_DATABASE_FILE, key .. "\n")
+        end)
+    else
+        print("[DEBUG] Creating new file")
+        success = pcall(function()
+            writefile(KEY_DATABASE_FILE, key .. "\n")
+        end)
+    end
+    
+    if success then
+        print("[DEBUG] Key saved successfully")
+        return true
+    else
+        print("[DEBUG] Failed to save key")
+        return false
+    end
 end
 
--- Check if key is already used ANYWHERE (globally)
+-- Check if key has been used
 local function IsKeyUsed(key)
-    return _G.AfonsoKeyStorage.UsedKeys[key] ~= nil
+    return USED_KEYS[key] == true
 end
 
 -- Mark key as used
-local function MarkKeyAsUsed(key, deviceId, username)
-    _G.AfonsoKeyStorage.UsedKeys[key] = {
-        deviceId = deviceId,
-        username = username,
-        timestamp = os.time()
-    }
-    SaveUsedKeys()
-    print("Marked key as used:", key)
+local function MarkKeyAsUsed(key)
+    USED_KEYS[key] = true
+    SaveUsedKey(key)
 end
 
+-- ========== INITIALIZATION ==========
+-- Load keys when script starts
+LoadUsedKeys()
+
+-- ========== RAYFIELD UI SETUP ==========
 local Window = Rayfield:CreateWindow({
-   Name = "Afonso Scripts",
-   Icon = 0,
-   LoadingTitle = "Example Hub",
-   LoadingSubtitle = "by Afonso",
-   Theme = "Dark Blue",
-   DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false,
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = true,
-      FileName = "ExampleHub"
-   },
-   Discord = {
-      Enabled = true,
-      Invite = "mpTjs9EZ",
-      RememberJoins = true
-   },
-   KeySystem = true,
-   KeySettings = {
-      Title = "Afonso Scripts || keys",
-      Subtitle = "Link in discord server",
-      Note = "Join discord server from misc tab",
-      FileName = "ExampleHubKey",
-      SaveKey = false,
-      GrabKeyFromSite = false,
-      Key = {"premiumkey2"}, -- This can be replaced with your actual keys
-      
-      Callback = function(inputKey)
-          print("Key validation started for key:", inputKey)
-          
-          local deviceId = GetDeviceIdentifier()
-          local username = game:GetService("Players").LocalPlayer.Name
-          
-          print("Device ID:", deviceId)
-          print("Username:", username)
-          
-          -- STRICT ONE-TIME KEY CHECK: Check if key is already used GLOBALLY
-          if IsKeyUsed(inputKey) then
-              -- Key is already used, reject ALWAYS
-              print("Key already used, rejecting")
-              Rayfield:Notify({
-                  Title = "Key Error",
-                  Content = "This key has already been activated and cannot be used again",
-                  Duration = 5
-              })
-              return false
-          end
-          
-          -- Key not used yet, check if it's valid
-          local isValidKey = false
-          for _, validKey in ipairs(Rayfield.Options.KeySettings.Key) do
-              if inputKey == validKey then
-                  isValidKey = true
-                  break
-              end
-          end
-          
-          -- If valid, mark as used and send webhook
-          if isValidKey then
-              print("Valid key found, marking as used")
-              
-              -- Mark the key as used immediately
-              MarkKeyAsUsed(inputKey, deviceId, username)
-              
-              -- Send webhook notification
-              local webhookSuccess = SendWebhookNotification(inputKey, username, deviceId)
-              
-              -- Notify user based on webhook success (but still allow login)
-              if not webhookSuccess then
-                  print("Webhook failed but continuing")
-                  Rayfield:Notify({
-                      Title = "Warning",
-                      Content = "Key accepted but webhook notification failed",
-                      Duration = 3
-                  })
-              end
-              
-              return true
-          end
-          
-          print("Key invalid, rejecting")
-          return false
-      end
-   }
+    Name = "Afonso Scripts",
+    Icon = 0,
+    LoadingTitle = "Example Hub",
+    LoadingSubtitle = "by Afonso",
+    Theme = "Dark Blue",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = true,
+        FileName = "ExampleHub"
+    },
+    Discord = {
+        Enabled = true,
+        Invite = "mpTjs9EZ",
+        RememberJoins = true
+    },
+    KeySystem = true,
+    KeySettings = {
+        Title = "Afonso Scripts || keys",
+        Subtitle = "Link in discord server",
+        Note = "Join discord server from misc tab",
+        FileName = "ExampleHubKey",
+        SaveKey = false,
+        GrabKeyFromSite = false,
+        Key = {"premiumkey2"}, -- This can be replaced with your actual keys
+        
+        Callback = function(inputKey)
+            print("[DEBUG] Key entered: " .. inputKey)
+            
+            -- Get user info
+            local username = game:GetService("Players").LocalPlayer.Name
+            local userId = game:GetService("Players").LocalPlayer.UserId
+            
+            print("[DEBUG] User: " .. username .. " (ID: " .. userId .. ")")
+            
+            -- Check if key is already used
+            if IsKeyUsed(inputKey) then
+                print("[DEBUG] Key already used, rejecting")
+                Rayfield:Notify({
+                    Title = "Key Error",
+                    Content = "This key has already been used and cannot be used again",
+                    Duration = 5
+                })
+                return false
+            end
+            
+            -- Check if key is valid
+            local validKeys = Rayfield.Options.KeySettings.Key
+            local isValid = false
+            
+            for _, validKey in ipairs(validKeys) do
+                if inputKey == validKey then
+                    isValid = true
+                    break
+                end
+            end
+            
+            if not isValid then
+                print("[DEBUG] Invalid key, rejecting")
+                return false
+            end
+            
+            -- Key is valid and unused, mark it as used
+            print("[DEBUG] Valid key, marking as used")
+            MarkKeyAsUsed(inputKey)
+            
+            -- Send webhook notification
+            local message = "Key Used: " .. inputKey .. " | Username: @" .. username .. " | UserID: " .. userId
+            local webhookSuccess, webhookResponse = NotifyDiscord(message)
+            
+            if webhookSuccess then
+                print("[DEBUG] Webhook sent successfully")
+            else
+                print("[DEBUG] Webhook failed: " .. tostring(webhookResponse))
+                
+                -- Try alternative webhook methods
+                print("[DEBUG] Trying alternative webhook method")
+                pcall(function()
+                    local formattedMessage = game:HttpGet("https://webhook.lewisakura.moe/api/webhook?content=" .. game:GetService("HttpService"):UrlEncode(message) .. "&url=" .. game:GetService("HttpService"):UrlEncode(WEBHOOK_URL))
+                    print("[DEBUG] Alternative webhook result: " .. formattedMessage)
+                end)
+            end
+            
+            -- Allow access regardless of webhook success
+            return true
+        end
+    }
 })
 
 local MainTab = Window:CreateTab("🏠Home", nil) -- Title, Image
