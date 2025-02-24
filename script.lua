@@ -1,5 +1,8 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- Discord webhook URL
+local WebhookURL = "https://discord.com/api/webhooks/1343686063662825635/VVv1euDJPBGHCCvI_-J34eQ9NdoeeR8X-GuRX0ki1OB6B6xJYPj-4xTLKuK3C-IOoLXF"
+
 -- Function to get a reliable device identifier
 local function GetDeviceIdentifier()
     local result = ""
@@ -25,10 +28,75 @@ local function GetDeviceIdentifier()
     return result
 end
 
--- Device key tracker
+-- Function to send Discord webhook
+local function SendWebhookNotification(key, username, deviceId)
+    pcall(function()
+        local HttpService = game:GetService("HttpService")
+        local Players = game:GetService("Players")
+        
+        -- Get player information
+        local player = Players.LocalPlayer
+        local playerName = player and player.Name or "Unknown"
+        local userId = player and player.UserId or 0
+        local displayName = player and player.DisplayName or "Unknown"
+        
+        -- Prepare webhook data
+        local data = {
+            embeds = {{
+                title = "Key Used 🔑",
+                description = string.format("**Key:** `%s`\n**Username:** @%s\n**Display Name:** %s\n**User ID:** %s\n**Device ID:** `%s`", 
+                    key, username, displayName, userId, deviceId),
+                color = 3447003,
+                footer = {
+                    text = "Afonso Scripts Key System • " .. os.date("%Y-%m-%d %H:%M:%S")
+                }
+            }}
+        }
+        
+        -- Send webhook
+        local success, response
+        if syn and syn.request then
+            success, response = pcall(function()
+                return syn.request({
+                    Url = WebhookURL,
+                    Method = "POST",
+                    Headers = {
+                        ["Content-Type"] = "application/json"
+                    },
+                    Body = HttpService:JSONEncode(data)
+                })
+            end)
+        elseif request then
+            success, response = pcall(function()
+                return request({
+                    Url = WebhookURL,
+                    Method = "POST",
+                    Headers = {
+                        ["Content-Type"] = "application/json"
+                    },
+                    Body = HttpService:JSONEncode(data)
+                })
+            end)
+        elseif http and http.request then
+            success, response = pcall(function()
+                return http.request({
+                    Url = WebhookURL,
+                    Method = "POST",
+                    Headers = {
+                        ["Content-Type"] = "application/json"
+                    },
+                    Body = HttpService:JSONEncode(data)
+                })
+            end)
+        end
+    end)
+end
+
+-- Device key tracker with versioning
 local DeviceKeySystem = {}
 DeviceKeySystem.FileName = "AfonsoScripts_UsedKeys.dat"
 DeviceKeySystem.UsedKeys = {}
+DeviceKeySystem.KeyVersion = "v1" -- Key version identifier - change this when updating keys
 
 -- Load existing used keys data
 pcall(function()
@@ -36,17 +104,24 @@ pcall(function()
         local success, data = pcall(function()
             return game:GetService("HttpService"):JSONDecode(readfile(DeviceKeySystem.FileName))
         end)
-        if success then
-            DeviceKeySystem.UsedKeys = data
+        if success and data.KeyVersion == DeviceKeySystem.KeyVersion then
+            DeviceKeySystem.UsedKeys = data.UsedKeys or {}
+        else
+            -- If key version doesn't match, previous keys will be invalidated
+            DeviceKeySystem.UsedKeys = {}
         end
     end
 end)
 
--- Save used keys
+-- Save used keys with version
 function DeviceKeySystem:SaveUsedKeys()
     pcall(function()
         if writefile then
-            writefile(self.FileName, game:GetService("HttpService"):JSONEncode(self.UsedKeys))
+            local dataToSave = {
+                KeyVersion = self.KeyVersion,
+                UsedKeys = self.UsedKeys
+            }
+            writefile(self.FileName, game:GetService("HttpService"):JSONEncode(dataToSave))
         end
     end)
 end
@@ -57,8 +132,12 @@ function DeviceKeySystem:IsKeyUsed(key)
 end
 
 -- Mark key as used
-function DeviceKeySystem:MarkKeyAsUsed(key, deviceId)
-    self.UsedKeys[key] = deviceId
+function DeviceKeySystem:MarkKeyAsUsed(key, deviceId, username)
+    self.UsedKeys[key] = {
+        deviceId = deviceId,
+        username = username,
+        timestamp = os.time()
+    }
     self:SaveUsedKeys()
 end
 
@@ -92,11 +171,13 @@ local Window = Rayfield:CreateWindow({
       
       Callback = function(inputKey)
           local deviceId = GetDeviceIdentifier()
+          local username = game:GetService("Players").LocalPlayer.Name
           
           -- Check if key is already used on any device
           if DeviceKeySystem:IsKeyUsed(inputKey) then
               -- Check if this is the same device that used the key
-              if DeviceKeySystem.UsedKeys[inputKey] == deviceId then
+              local keyData = DeviceKeySystem.UsedKeys[inputKey]
+              if keyData and keyData.deviceId == deviceId then
                   return true -- Allow reuse on same device
               else
                   -- Key used on different device, reject
@@ -118,9 +199,13 @@ local Window = Rayfield:CreateWindow({
               end
           end
           
-          -- If valid, mark as used by this device
+          -- If valid, mark as used by this device and send webhook
           if isValidKey then
-              DeviceKeySystem:MarkKeyAsUsed(inputKey, deviceId)
+              DeviceKeySystem:MarkKeyAsUsed(inputKey, deviceId, username)
+              
+              -- Send webhook notification
+              SendWebhookNotification(inputKey, username, deviceId)
+              
               return true
           end
           
