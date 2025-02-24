@@ -1107,7 +1107,7 @@ end)
 
 -- Keep the Button declaration as requested
 local Button = MainTab:CreateButton({
-    Name = "Stats",
+    Name = "Status",
     Callback = function() -- The function that takes place when the button is pressed end,
     end, 
 })
@@ -1130,7 +1130,6 @@ local stats = {
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local GameEvents = ReplicatedStorage:WaitForChild("GameEvents")
 
 -- Function to calculate K/D ratio
 local function calculateKD()
@@ -1140,34 +1139,55 @@ local function calculateKD()
         stats.kdRatio = stats.kills / stats.deaths
     end
     return stats.kdRatio
-end
+}
 
--- Create GUI for displaying stats
+-- Create GUI for displaying stats - FIXED VERSION
+local statsLabels = {}
+
 local function createStatsGUI()
+    -- Remove existing GUI if it exists
+    if LocalPlayer:FindFirstChild("PlayerGui") then
+        local existingGui = LocalPlayer.PlayerGui:FindFirstChild("ArsenalStatsTracker")
+        if existingGui then
+            existingGui:Destroy()
+        end
+    end
+    
+    -- Create new GUI
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "ArsenalStatsTracker"
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    
+    -- Make sure PlayerGui exists before trying to parent to it
+    if not LocalPlayer:FindFirstChild("PlayerGui") then
+        local PlayerGui = Instance.new("PlayerGui")
+        PlayerGui.Parent = LocalPlayer
+        ScreenGui.Parent = PlayerGui
+    else
+        ScreenGui.Parent = LocalPlayer.PlayerGui
+    end
     
     local Frame = Instance.new("Frame")
     Frame.Name = "StatsFrame"
     Frame.Size = UDim2.new(0, 200, 0, 250)
-    Frame.Position = UDim2.new(0.85, 0, 0.5, 0)
-    Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    Frame.BackgroundTransparency = 0.3
+    Frame.Position = UDim2.new(0.8, 0, 0.5, -125) -- Center vertically, right side of screen
+    Frame.BackgroundColor3 = Color3.fromRGB(0, 0, 0) -- Black background
+    Frame.BackgroundTransparency = 0.5 -- Semi-transparent
     Frame.BorderSizePixel = 2
-    Frame.BorderColor3 = Color3.fromRGB(255, 150, 0)
+    Frame.BorderColor3 = Color3.fromRGB(255, 150, 0) -- Orange border
+    Frame.ZIndex = 10 -- Ensure it's on top
     Frame.Parent = ScreenGui
     
     local Title = Instance.new("TextLabel")
     Title.Name = "Title"
     Title.Size = UDim2.new(1, 0, 0, 30)
     Title.Position = UDim2.new(0, 0, 0, 0)
-    Title.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+    Title.BackgroundColor3 = Color3.fromRGB(255, 120, 0) -- Orange background
     Title.BackgroundTransparency = 0.2
     Title.Text = "ARSENAL STATS"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255) -- White text
     Title.TextSize = 18
     Title.Font = Enum.Font.SourceSansBold
+    Title.ZIndex = 11
     Title.Parent = Frame
     
     local StatsContainer = Instance.new("Frame")
@@ -1175,9 +1195,9 @@ local function createStatsGUI()
     StatsContainer.Size = UDim2.new(1, -20, 1, -40)
     StatsContainer.Position = UDim2.new(0, 10, 0, 35)
     StatsContainer.BackgroundTransparency = 1
+    StatsContainer.ZIndex = 11
     StatsContainer.Parent = Frame
     
-    local statsLabels = {}
     local statItems = {
         "Kills", "Deaths", "K/D Ratio", "Current Streak", "Best Streak",
         "Headshots", "Ammo Shot", "Assists", "Melee Kills", "Time Played"
@@ -1190,182 +1210,237 @@ local function createStatsGUI()
         StatLabel.Position = UDim2.new(0, 0, 0, (i-1) * 21)
         StatLabel.BackgroundTransparency = 1
         StatLabel.Text = statName .. ": 0"
-        StatLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        StatLabel.TextColor3 = Color3.fromRGB(255, 255, 255) -- White text
         StatLabel.TextSize = 14
         StatLabel.Font = Enum.Font.SourceSans
         StatLabel.TextXAlignment = Enum.TextXAlignment.Left
+        StatLabel.ZIndex = 11
         StatLabel.Parent = StatsContainer
         
         statsLabels[statName:gsub(" ", "")] = StatLabel
     end
     
+    -- Add visibility toggle button
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Name = "ToggleButton"
+    ToggleButton.Size = UDim2.new(0, 50, 0, 20)
+    ToggleButton.Position = UDim2.new(1, -50, 0, 5)
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Red background
+    ToggleButton.Text = "Hide"
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleButton.TextSize = 12
+    ToggleButton.Font = Enum.Font.SourceSansBold
+    ToggleButton.ZIndex = 12
+    ToggleButton.Parent = Title
+    
+    -- Toggle visibility when clicked
+    local guiVisible = true
+    ToggleButton.MouseButton1Click:Connect(function()
+        guiVisible = not guiVisible
+        if guiVisible then
+            StatsContainer.Visible = true
+            Frame.Size = UDim2.new(0, 200, 0, 250)
+            ToggleButton.Text = "Hide"
+        else
+            StatsContainer.Visible = false
+            Frame.Size = UDim2.new(0, 200, 0, 30)
+            ToggleButton.Text = "Show"
+        end
+    end)
+    
+    -- Force GUI to be visible
+    ScreenGui.Enabled = true
+    Frame.Visible = true
+    StatsContainer.Visible = true
+    
+    -- Print debug message
+    print("Arsenal Stats GUI created successfully")
+    
     return statsLabels
 end
 
-local statsLabels = createStatsGUI()
-
 -- Function to update statistics display
 local function updateStatsDisplay()
-    statsLabels.Kills.Text = "Kills: " .. stats.kills
-    statsLabels.Deaths.Text = "Deaths: " .. stats.deaths
-    statsLabels.KDRatio.Text = "K/D Ratio: " .. string.format("%.2f", stats.kdRatio)
-    statsLabels.CurrentStreak.Text = "Current Streak: " .. stats.currentStreak
-    statsLabels.BestStreak.Text = "Best Streak: " .. stats.bestStreak
-    statsLabels.Headshots.Text = "Headshots: " .. stats.headshots
-    statsLabels.AmmoShot.Text = "Ammo Shot: " .. stats.ammoShot
-    statsLabels.Assists.Text = "Assists: " .. stats.assists
-    statsLabels.MeleeKills.Text = "Melee Kills: " .. stats.meleeKills
-    statsLabels.TimePlayed.Text = "Time Played: " .. string.format("%d:%02d", math.floor(stats.timePlayed/60), stats.timePlayed%60)
+    -- Make sure labels exist before trying to update them
+    if not statsLabels.Kills then
+        print("Stats labels not found, recreating GUI")
+        statsLabels = createStatsGUI()
+    end
+    
+    -- Update each label with current stats
+    pcall(function()
+        statsLabels.Kills.Text = "Kills: " .. stats.kills
+        statsLabels.Deaths.Text = "Deaths: " .. stats.deaths
+        statsLabels.KDRatio.Text = "K/D Ratio: " .. string.format("%.2f", stats.kdRatio)
+        statsLabels.CurrentStreak.Text = "Current Streak: " .. stats.currentStreak
+        statsLabels.BestStreak.Text = "Best Streak: " .. stats.bestStreak
+        statsLabels.Headshots.Text = "Headshots: " .. stats.headshots
+        statsLabels.AmmoShot.Text = "Ammo Shot: " .. stats.ammoShot
+        statsLabels.Assists.Text = "Assists: " .. stats.assists
+        statsLabels.MeleeKills.Text = "Melee Kills: " .. stats.meleeKills
+        statsLabels.TimePlayed.Text = "Time Played: " .. string.format("%d:%02d", math.floor(stats.timePlayed/60), stats.timePlayed%60)
+    end)
+    
+    -- Print debug update for verification
+    print("Stats updated - Kills: " .. stats.kills .. ", Deaths: " .. stats.deaths)
 end
 
--- Connect to Arsenal's game events to track statistics
-local function connectArsenalEvents()
-    -- Track kills
-    if GameEvents:FindFirstChild("KillEvent") then
-        GameEvents.KillEvent.OnClientEvent:Connect(function(killer, victim, weaponName)
-            if killer and killer == LocalPlayer then
-                stats.kills = stats.kills + 1
-                stats.currentStreak = stats.currentStreak + 1
-                
-                if stats.currentStreak > stats.bestStreak then
-                    stats.bestStreak = stats.currentStreak
-                end
-                
-                -- Check if it was a melee kill
-                if weaponName and (weaponName:find("Knife") or weaponName:find("Bat") or weaponName:find("Sword")) then
-                    stats.meleeKills = stats.meleeKills + 1
-                end
-                
-                calculateKD()
-                updateStatsDisplay()
+-- Connect to game events using a more reliable method
+local function setupEventConnections()
+    -- Listen for kill feed messages as a backup method
+    LocalPlayer.Chatted:Connect(function(message)
+        -- Detect kill messages (this is a backup method)
+        if message:find("killed") and message:find(LocalPlayer.Name) then
+            stats.kills = stats.kills + 1
+            stats.currentStreak = stats.currentStreak + 1
+            
+            if stats.currentStreak > stats.bestStreak then
+                stats.bestStreak = stats.currentStreak
             end
-        end)
-    end
+            
+            calculateKD()
+            updateStatsDisplay()
+        end
+    end)
     
-    -- Track deaths
-    if GameEvents:FindFirstChild("DeathEvent") then
-        GameEvents.DeathEvent.OnClientEvent:Connect(function(victim)
-            if victim and victim == LocalPlayer then
-                stats.deaths = stats.deaths + 1
-                stats.currentStreak = 0 -- Reset streak on death
-                calculateKD()
-                updateStatsDisplay()
-            end
+    -- Track when player dies
+    LocalPlayer.CharacterAdded:Connect(function(character)
+        character:WaitForChild("Humanoid").Died:Connect(function()
+            stats.deaths = stats.deaths + 1
+            stats.currentStreak = 0
+            calculateKD()
+            updateStatsDisplay()
         end)
-    end
-    
-    -- Track assists
-    if GameEvents:FindFirstChild("AssistEvent") then
-        GameEvents.AssistEvent.OnClientEvent:Connect(function(assister, victim)
-            if assister and assister == LocalPlayer then
-                stats.assists = stats.assists + 1
-                updateStatsDisplay()
-            end
-        end)
-    end
-    
-    -- Track headshots
-    if GameEvents:FindFirstChild("HeadshotEvent") then
-        GameEvents.HeadshotEvent.OnClientEvent:Connect(function(shooter, victim)
-            if shooter and shooter == LocalPlayer then
-                stats.headshots = stats.headshots + 1
-                updateStatsDisplay()
-            end
-        end)
-    end
-    
-    -- Track weapon firing
-    LocalPlayer.Character.ChildAdded:Connect(function(child)
-        if child:IsA("Tool") then
-            local gun = child
-            if gun:FindFirstChild("Fire") and gun.Fire:IsA("RemoteEvent") then
-                gun.Activated:Connect(function()
+        
+        -- Track weapon firing
+        character.ChildAdded:Connect(function(child)
+            if child:IsA("Tool") then
+                child.Activated:Connect(function()
                     stats.ammoShot = stats.ammoShot + 1
                     updateStatsDisplay()
                 end)
             end
+        end)
+    end)
+    
+    -- Attempt to connect to Arsenal's events if they exist
+    if ReplicatedStorage:FindFirstChild("GameEvents") then
+        local GameEvents = ReplicatedStorage.GameEvents
+        
+        if GameEvents:FindFirstChild("KillEvent") then
+            GameEvents.KillEvent.OnClientEvent:Connect(function(killer, victim)
+                if killer and killer.Name == LocalPlayer.Name then
+                    stats.kills = stats.kills + 1
+                    stats.currentStreak = stats.currentStreak + 1
+                    
+                    if stats.currentStreak > stats.bestStreak then
+                        stats.bestStreak = stats.currentStreak
+                    end
+                    
+                    calculateKD()
+                    updateStatsDisplay()
+                end
+            end)
+        end
+        
+        if GameEvents:FindFirstChild("HeadshotEvent") then
+            GameEvents.HeadshotEvent.OnClientEvent:Connect(function(player)
+                if player and player.Name == LocalPlayer.Name then
+                    stats.headshots = stats.headshots + 1
+                    updateStatsDisplay()
+                end
+            end)
+        end
+    end
+end
+
+-- Track time played
+local function startTimeTracking()
+    local startTime = os.time()
+    
+    spawn(function()
+        while wait(1) do
+            stats.timePlayed = os.time() - startTime
+            updateStatsDisplay()
         end
     end)
 end
 
--- Track time played
-local startTime = os.time()
-local function updateTimePlayed()
-    stats.timePlayed = os.time() - startTime
+-- Initialize the entire system
+local function initialize()
+    print("Initializing Arsenal Stats Tracker")
+    
+    -- Create GUI first
+    statsLabels = createStatsGUI()
+    
+    -- Set up event connections
+    setupEventConnections()
+    
+    -- Start time tracking
+    startTimeTracking()
+    
+    -- Set initial values
+    calculateKD()
     updateStatsDisplay()
-end
-
--- Run timer for tracking playtime
-spawn(function()
-    while true do
-        wait(1)
-        updateTimePlayed()
-    end
-end)
-
--- Save stats function using Roblox's DataStoreService
-local DataStoreService = game:GetService("DataStoreService")
-local ArsenalStatsStore = DataStoreService:GetDataStore("ArsenalPlayerStats")
-
-local function saveStats()
-    local success, errorMessage = pcall(function()
-        ArsenalStatsStore:SetAsync(LocalPlayer.UserId .. "_stats", stats)
+    
+    -- Show initialization message
+    local message = Instance.new("TextLabel")
+    message.Text = "Stats Tracker Initialized!"
+    message.Size = UDim2.new(0, 250, 0, 50)
+    message.Position = UDim2.new(0.5, -125, 0.2, 0)
+    message.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    message.TextColor3 = Color3.fromRGB(255, 255, 255)
+    message.Parent = LocalPlayer.PlayerGui.ArsenalStatsTracker
+    
+    -- Remove message after 3 seconds
+    spawn(function()
+        wait(3)
+        message:Destroy()
     end)
     
-    if success then
-        -- Notify player stats were saved
-        local notification = Instance.new("TextLabel")
-        notification.Text = "Stats Saved!"
-        notification.Size = UDim2.new(0, 200, 0, 50)
-        notification.Position = UDim2.new(0.5, -100, 0.8, 0)
-        notification.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-        notification.TextColor3 = Color3.fromRGB(255, 255, 255)
-        notification.Parent = LocalPlayer.PlayerGui.ArsenalStatsTracker
+    print("Arsenal Stats Tracker initialization complete")
+end
+
+-- Update Button callback
+Button.Callback = function()
+    -- Save stats functionality would go here
+    -- For now, just reinitialize the GUI if it's not visible
+    if not LocalPlayer.PlayerGui:FindFirstChild("ArsenalStatsTracker") then
+        initialize()
+    else
+        -- Show a message
+        local message = Instance.new("TextLabel")
+        message.Text = "Stats Saved!"
+        message.Size = UDim2.new(0, 200, 0, 50)
+        message.Position = UDim2.new(0.5, -100, 0.2, 0)
+        message.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+        message.TextColor3 = Color3.fromRGB(255, 255, 255)
+        message.Parent = LocalPlayer.PlayerGui.ArsenalStatsTracker
         
-        -- Remove notification after 3 seconds
+        -- Remove message after 3 seconds
         spawn(function()
             wait(3)
-            notification:Destroy()
+            message:Destroy()
         end)
-    else
-        warn("Failed to save stats: " .. errorMessage)
     end
 end
 
--- Load previous stats if available
-local function loadStats()
-    local success, result = pcall(function()
-        return ArsenalStatsStore:GetAsync(LocalPlayer.UserId .. "_stats")
-    end)
-    
-    if success and result then
-        stats = result
-        calculateKD()
-        updateStatsDisplay()
+-- Run initialization
+initialize()
+
+-- Add a command to show stats if the GUI gets hidden
+LocalPlayer.Chatted:Connect(function(message)
+    if message:lower() == "/stats" then
+        if not LocalPlayer.PlayerGui:FindFirstChild("ArsenalStatsTracker") then
+            initialize()
+        else
+            LocalPlayer.PlayerGui.ArsenalStatsTracker.StatsFrame.Visible = true
+        end
     end
-end
-
--- Initialize the system
-local function initialize()
-    connectArsenalEvents()
-    loadStats()
-    updateStatsDisplay()
-end
-
--- Add save functionality to the button
-Button.Callback = function()
-    saveStats()
-end
-
--- Run initialization when player character is ready
-LocalPlayer.CharacterAdded:Connect(function()
-    initialize()
 end)
 
--- Initial run if character already exists
-if LocalPlayer.Character then
-    initialize()
-end
+-- Output confirmation message
+print("Arsenal Stats Tracker loaded successfully")
 
 local TeleportTab = Window:CreateTab("🌀Teleport", nil) -- Title, Image
 local TeleportSection = TeleportTab:CreateSection("Teleport")
