@@ -1,6 +1,6 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
--- Discord webhook URL
+-- Discord webhook URL - Updated to your specific channel
 local WebhookURL = "https://discord.com/api/webhooks/1343686063662825635/VVv1euDJPBGHCCvI_-J34eQ9NdoeeR8X-GuRX0ki1OB6B6xJYPj-4xTLKuK3C-IOoLXF"
 
 -- Function to get a reliable device identifier
@@ -30,6 +30,9 @@ end
 
 -- Function to send Discord webhook with simple text message
 local function SendWebhookNotification(key, username, deviceId)
+    -- Direct debug output to console
+    print("Sending webhook notification...")
+    
     local HttpService = game:GetService("HttpService")
     local Players = game:GetService("Players")
     
@@ -42,90 +45,126 @@ local function SendWebhookNotification(key, username, deviceId)
     local messageContent = string.format("Key Used: %s | Username: @%s | UserID: %s | DeviceID: %s", 
         key, playerName, userId, deviceId)
     
-    -- Prepare webhook data
+    -- Prepare webhook data - as simple as possible
     local data = {
         content = messageContent
     }
     
-    -- Send webhook using the appropriate request method for the executor
+    local jsonData = HttpService:JSONEncode(data)
+    print("Webhook data prepared:", jsonData)
+    
+    -- Send webhook with better error handling
+    local success, response
+    
+    -- Try all possible request methods
     if syn and syn.request then
-        syn.request({
-            Url = WebhookURL,
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json"
-            },
-            Body = HttpService:JSONEncode(data)
-        })
+        print("Using syn.request")
+        success, response = pcall(function()
+            return syn.request({
+                Url = WebhookURL,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = jsonData
+            })
+        end)
     elseif http and http.request then
-        http.request({
-            Url = WebhookURL,
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json"
-            },
-            Body = HttpService:JSONEncode(data)
-        })
+        print("Using http.request")
+        success, response = pcall(function()
+            return http.request({
+                Url = WebhookURL,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = jsonData
+            })
+        end)
     elseif request then
-        request({
-            Url = WebhookURL,
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json"
-            },
-            Body = HttpService:JSONEncode(data)
-        })
+        print("Using request")
+        success, response = pcall(function()
+            return request({
+                Url = WebhookURL,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = jsonData
+            })
+        end)
     elseif httprequest then
-        httprequest({
-            Url = WebhookURL,
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json"
-            },
-            Body = HttpService:JSONEncode(data)
-        })
+        print("Using httprequest")
+        success, response = pcall(function()
+            return httprequest({
+                Url = WebhookURL,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/json"
+                },
+                Body = jsonData
+            })
+        end)
+    else
+        print("No compatible request method found")
+        success = false
     end
+    
+    -- Log result
+    if success then
+        print("Webhook sent successfully:", response)
+    else
+        print("Failed to send webhook:", response)
+    end
+    
+    return success
 end
 
--- Device key tracker
-local DeviceKeySystem = {}
-DeviceKeySystem.FileName = "AfonsoScripts_UsedKeys.dat"
-DeviceKeySystem.UsedKeys = {}
+-- Global key storage with file system
+_G.AfonsoKeyStorage = _G.AfonsoKeyStorage or {
+    FileName = "AfonsoScripts_UsedKeys_Global.dat",
+    UsedKeys = {}
+}
 
--- Load existing used keys data
-pcall(function()
-    if readfile and isfile and isfile(DeviceKeySystem.FileName) then
-        local success, data = pcall(function()
-            return game:GetService("HttpService"):JSONDecode(readfile(DeviceKeySystem.FileName))
-        end)
-        if success then
-            DeviceKeySystem.UsedKeys = data
-        end
-    end
-end)
-
--- Save used keys
-function DeviceKeySystem:SaveUsedKeys()
+-- Load existing used keys data (from global storage first, then from file as backup)
+if not next(_G.AfonsoKeyStorage.UsedKeys) then
     pcall(function()
-        if writefile then
-            writefile(self.FileName, game:GetService("HttpService"):JSONEncode(self.UsedKeys))
+        if readfile and isfile and isfile(_G.AfonsoKeyStorage.FileName) then
+            local success, data = pcall(function()
+                return game:GetService("HttpService"):JSONDecode(readfile(_G.AfonsoKeyStorage.FileName))
+            end)
+            if success then
+                _G.AfonsoKeyStorage.UsedKeys = data
+                print("Loaded used keys from file:", #data)
+            end
         end
     end)
 end
 
--- Check if key is already used on any device
-function DeviceKeySystem:IsKeyUsed(key)
-    return self.UsedKeys[key] ~= nil
+-- Save used keys
+local function SaveUsedKeys()
+    pcall(function()
+        if writefile then
+            writefile(_G.AfonsoKeyStorage.FileName, game:GetService("HttpService"):JSONEncode(_G.AfonsoKeyStorage.UsedKeys))
+            print("Saved used keys to file")
+        end
+    end)
+end
+
+-- Check if key is already used ANYWHERE (globally)
+local function IsKeyUsed(key)
+    return _G.AfonsoKeyStorage.UsedKeys[key] ~= nil
 end
 
 -- Mark key as used
-function DeviceKeySystem:MarkKeyAsUsed(key, deviceId, username)
-    self.UsedKeys[key] = {
+local function MarkKeyAsUsed(key, deviceId, username)
+    _G.AfonsoKeyStorage.UsedKeys[key] = {
         deviceId = deviceId,
         username = username,
         timestamp = os.time()
     }
-    self:SaveUsedKeys()
+    SaveUsedKeys()
+    print("Marked key as used:", key)
 end
 
 local Window = Rayfield:CreateWindow({
@@ -157,12 +196,18 @@ local Window = Rayfield:CreateWindow({
       Key = {"premiumkey2"}, -- This can be replaced with your actual keys
       
       Callback = function(inputKey)
+          print("Key validation started for key:", inputKey)
+          
           local deviceId = GetDeviceIdentifier()
           local username = game:GetService("Players").LocalPlayer.Name
           
-          -- STRICT KEY SYSTEM: Check if key is already used on ANY device
-          if DeviceKeySystem:IsKeyUsed(inputKey) then
-              -- Key is already used, reject regardless of device
+          print("Device ID:", deviceId)
+          print("Username:", username)
+          
+          -- STRICT ONE-TIME KEY CHECK: Check if key is already used GLOBALLY
+          if IsKeyUsed(inputKey) then
+              -- Key is already used, reject ALWAYS
+              print("Key already used, rejecting")
               Rayfield:Notify({
                   Title = "Key Error",
                   Content = "This key has already been activated and cannot be used again",
@@ -180,19 +225,30 @@ local Window = Rayfield:CreateWindow({
               end
           end
           
-          -- If valid, mark as used by this device and send webhook
+          -- If valid, mark as used and send webhook
           if isValidKey then
-              -- Mark the key as used FIRST (important to prevent duplicate use)
-              DeviceKeySystem:MarkKeyAsUsed(inputKey, deviceId, username)
+              print("Valid key found, marking as used")
               
-              -- Then send the webhook notification (with error handling)
-              pcall(function()
-                  SendWebhookNotification(inputKey, username, deviceId)
-              end)
+              -- Mark the key as used immediately
+              MarkKeyAsUsed(inputKey, deviceId, username)
+              
+              -- Send webhook notification
+              local webhookSuccess = SendWebhookNotification(inputKey, username, deviceId)
+              
+              -- Notify user based on webhook success (but still allow login)
+              if not webhookSuccess then
+                  print("Webhook failed but continuing")
+                  Rayfield:Notify({
+                      Title = "Warning",
+                      Content = "Key accepted but webhook notification failed",
+                      Duration = 3
+                  })
+              end
               
               return true
           end
           
+          print("Key invalid, rejecting")
           return false
       end
    }
