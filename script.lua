@@ -1103,71 +1103,428 @@ spawn(function()
 end)
 
 local Button = MainTab:CreateButton({
-   Name = "Studio View",
+   Name = "Enhanced Studio View",
    Callback = function()
        -- Toggle state variable
        _G.StudioViewEnabled = not (_G.StudioViewEnabled or false)
        
-       local function showServiceContents(service)
-           print("\n=== " .. service.Name .. " Contents ===")
-           for _, item in pairs(service:GetChildren()) do
-               print("• " .. item.Name .. " [" .. item.ClassName .. "]")
-               -- Show next level of children for important items
-               if #item:GetChildren() > 0 then
-                   for _, child in pairs(item:GetChildren()) do
-                       print("  ↳ " .. child.Name .. " [" .. child.ClassName .. "]")
-                   end
-               end
-           end
+       -- Clean up existing UI if present
+       local playerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
+       if playerGui and playerGui:FindFirstChild("StudioExplorer") then
+           playerGui.StudioExplorer:Destroy()
        end
        
        if _G.StudioViewEnabled then
-           -- Create studio-like info display
+           -- Create a more comprehensive studio explorer
            local screenGui = Instance.new("ScreenGui")
            screenGui.Name = "StudioExplorer"
            screenGui.ResetOnSpawn = false
-           screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+           screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+           screenGui.Parent = playerGui
            
-           local frame = Instance.new("Frame")
-           frame.Name = "ExplorerPanel"
-           frame.Size = UDim2.new(0.3, 0, 0.8, 0)
-           frame.Position = UDim2.new(0.7, 0, 0.1, 0)
-           frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-           frame.BorderSizePixel = 2
-           frame.Parent = screenGui
+           -- Main frame
+           local mainFrame = Instance.new("Frame")
+           mainFrame.Name = "MainFrame"
+           mainFrame.Size = UDim2.new(0.4, 0, 0.8, 0)
+           mainFrame.Position = UDim2.new(0.6, -10, 0.1, 0)
+           mainFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+           mainFrame.BorderSizePixel = 2
+           mainFrame.Parent = screenGui
            
-           local titleBar = Instance.new("TextLabel")
+           -- Make the main frame draggable
+           local isDragging = false
+           local dragInput
+           local dragStart
+           local startPos
+           
+           mainFrame.InputBegan:Connect(function(input)
+               if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                   isDragging = true
+                   dragStart = input.Position
+                   startPos = mainFrame.Position
+               end
+           end)
+           
+           mainFrame.InputEnded:Connect(function(input)
+               if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                   isDragging = false
+               end
+           end)
+           
+           game:GetService("UserInputService").InputChanged:Connect(function(input)
+               if input.UserInputType == Enum.UserInputType.MouseMovement and isDragging then
+                   local delta = input.Position - dragStart
+                   mainFrame.Position = UDim2.new(
+                       startPos.X.Scale,
+                       startPos.X.Offset + delta.X,
+                       startPos.Y.Scale,
+                       startPos.Y.Offset + delta.Y
+                   )
+               end
+           end)
+           
+           -- Title bar
+           local titleBar = Instance.new("Frame")
            titleBar.Name = "TitleBar"
            titleBar.Size = UDim2.new(1, 0, 0.05, 0)
            titleBar.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-           titleBar.TextColor3 = Color3.fromRGB(255, 255, 255)
-           titleBar.Text = "Explorer (Studio View)"
-           titleBar.Parent = frame
+           titleBar.BorderSizePixel = 0
+           titleBar.Parent = mainFrame
            
-           local scrollFrame = Instance.new("ScrollingFrame")
-           scrollFrame.Name = "ServicesView"
-           scrollFrame.Size = UDim2.new(1, 0, 0.95, 0)
-           scrollFrame.Position = UDim2.new(0, 0, 0.05, 0)
-           scrollFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-           scrollFrame.BorderSizePixel = 0
-           scrollFrame.ScrollBarThickness = 6
-           scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y -- Auto-adjust canvas size
-           scrollFrame.CanvasSize = UDim2.new(0, 0, 10, 0) -- Initial canvas size (will adjust)
-           scrollFrame.Parent = frame
+           local titleText = Instance.new("TextLabel")
+           titleText.Name = "Title"
+           titleText.Size = UDim2.new(1, -30, 1, 0)
+           titleText.Position = UDim2.new(0, 10, 0, 0)
+           titleText.BackgroundTransparency = 1
+           titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+           titleText.TextXAlignment = Enum.TextXAlignment.Left
+           titleText.Text = "Enhanced Explorer"
+           titleText.Font = Enum.Font.SourceSansBold
+           titleText.TextSize = 16
+           titleText.Parent = titleBar
            
-           -- Create container for all content to fix positioning issues
-           local contentContainer = Instance.new("Frame")
-           contentContainer.Name = "ContentContainer"
-           contentContainer.Size = UDim2.new(1, -10, 0, 5000) -- Will be adjusted based on content
-           contentContainer.BackgroundTransparency = 1
-           contentContainer.Parent = scrollFrame
+           -- Close button
+           local closeButton = Instance.new("TextButton")
+           closeButton.Name = "CloseButton"
+           closeButton.Size = UDim2.new(0, 20, 0, 20)
+           closeButton.Position = UDim2.new(1, -25, 0.5, -10)
+           closeButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+           closeButton.Text = "X"
+           closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+           closeButton.Font = Enum.Font.SourceSansBold
+           closeButton.TextSize = 14
+           closeButton.Parent = titleBar
            
-           -- Output all services and their contents to console and create UI elements
-           local yPosition = 0
-           local textSize = 18
+           closeButton.MouseButton1Click:Connect(function()
+               screenGui:Destroy()
+               _G.StudioViewEnabled = false
+               print("Enhanced Studio View disabled")
+           end)
+           
+           -- Tab buttons for different views
+           local tabFrame = Instance.new("Frame")
+           tabFrame.Name = "TabFrame"
+           tabFrame.Size = UDim2.new(1, 0, 0.05, 0)
+           tabFrame.Position = UDim2.new(0, 0, 0.05, 0)
+           tabFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+           tabFrame.BorderSizePixel = 0
+           tabFrame.Parent = mainFrame
+           
+           -- Create tabs
+           local tabs = {"Explorer", "Scripts", "Leaderstats", "Output", "Properties"}
+           local tabButtons = {}
+           local tabWidth = 1 / #tabs
+           
+           for i, tabName in ipairs(tabs) do
+               local tabButton = Instance.new("TextButton")
+               tabButton.Name = tabName .. "Tab"
+               tabButton.Size = UDim2.new(tabWidth, 0, 1, 0)
+               tabButton.Position = UDim2.new((i-1) * tabWidth, 0, 0, 0)
+               tabButton.BackgroundColor3 = (i == 1) and Color3.fromRGB(70, 70, 70) or Color3.fromRGB(50, 50, 50)
+               tabButton.BorderSizePixel = 0
+               tabButton.Text = tabName
+               tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+               tabButton.Font = Enum.Font.SourceSans
+               tabButton.TextSize = 14
+               tabButton.Parent = tabFrame
+               
+               tabButtons[tabName] = tabButton
+           end
+           
+           -- Content frame for the main view
+           local contentFrame = Instance.new("Frame")
+           contentFrame.Name = "ContentFrame"
+           contentFrame.Size = UDim2.new(1, 0, 0.9, 0)
+           contentFrame.Position = UDim2.new(0, 0, 0.1, 0)
+           contentFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+           contentFrame.BorderSizePixel = 0
+           contentFrame.Parent = mainFrame
+           
+           -- Different content frames for each tab
+           local explorerFrame = Instance.new("ScrollingFrame")
+           explorerFrame.Name = "ExplorerFrame"
+           explorerFrame.Size = UDim2.new(1, 0, 1, 0)
+           explorerFrame.BackgroundTransparency = 1
+           explorerFrame.BorderSizePixel = 0
+           explorerFrame.ScrollBarThickness = 6
+           explorerFrame.CanvasSize = UDim2.new(0, 0, 10, 0)
+           explorerFrame.Visible = true
+           explorerFrame.Parent = contentFrame
+           
+           local scriptsFrame = Instance.new("ScrollingFrame")
+           scriptsFrame.Name = "ScriptsFrame"
+           scriptsFrame.Size = UDim2.new(1, 0, 1, 0)
+           scriptsFrame.BackgroundTransparency = 1
+           scriptsFrame.BorderSizePixel = 0
+           scriptsFrame.ScrollBarThickness = 6
+           scriptsFrame.CanvasSize = UDim2.new(0, 0, 10, 0)
+           scriptsFrame.Visible = false
+           scriptsFrame.Parent = contentFrame
+           
+           local leaderstatsFrame = Instance.new("ScrollingFrame")
+           leaderstatsFrame.Name = "LeaderstatsFrame"
+           leaderstatsFrame.Size = UDim2.new(1, 0, 1, 0)
+           leaderstatsFrame.BackgroundTransparency = 1
+           leaderstatsFrame.BorderSizePixel = 0
+           leaderstatsFrame.ScrollBarThickness = 6
+           leaderstatsFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
+           leaderstatsFrame.Visible = false
+           leaderstatsFrame.Parent = contentFrame
+           
+           local outputFrame = Instance.new("ScrollingFrame")
+           outputFrame.Name = "OutputFrame"
+           outputFrame.Size = UDim2.new(1, 0, 1, 0)
+           outputFrame.BackgroundTransparency = 1
+           outputFrame.BorderSizePixel = 0
+           outputFrame.ScrollBarThickness = 6
+           outputFrame.CanvasSize = UDim2.new(0, 0, 10, 0)
+           outputFrame.Visible = false
+           outputFrame.Parent = contentFrame
+           
+           local propertiesFrame = Instance.new("ScrollingFrame")
+           propertiesFrame.Name = "PropertiesFrame"
+           propertiesFrame.Size = UDim2.new(1, 0, 1, 0)
+           propertiesFrame.BackgroundTransparency = 1
+           propertiesFrame.BorderSizePixel = 0
+           propertiesFrame.ScrollBarThickness = 6
+           propertiesFrame.CanvasSize = UDim2.new(0, 0, 2, 0)
+           propertiesFrame.Visible = false
+           propertiesFrame.Parent = contentFrame
+           
+           -- Tab switching functionality
+           local contentFrames = {
+               Explorer = explorerFrame,
+               Scripts = scriptsFrame,
+               Leaderstats = leaderstatsFrame,
+               Output = outputFrame,
+               Properties = propertiesFrame
+           }
+           
+           for name, button in pairs(tabButtons) do
+               button.MouseButton1Click:Connect(function()
+                   -- Update button colors
+                   for _, btn in pairs(tabButtons) do
+                       btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+                   end
+                   button.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
+                   
+                   -- Show selected frame, hide others
+                   for frameName, frame in pairs(contentFrames) do
+                       frame.Visible = (frameName == name)
+                   end
+               end)
+           end
+           
+           -- Global variables for selected object and script display
+           _G.SelectedInstance = nil
+           local scriptDisplay = nil
+           
+           -- Function to read script content
+           local function getScriptSource(script)
+               local success, source = pcall(function()
+                   -- Try to get the script source
+                   if script:IsA("LocalScript") or script:IsA("Script") or script:IsA("ModuleScript") then
+                       return decompile(script)
+                   end
+                   return "Cannot read script source"
+               end)
+               
+               if success then
+                   return source or "Empty script"
+               else
+                   return "Failed to read script: " .. tostring(source)
+               end
+           end
+           
+           -- Function to display script contents
+           local function displayScriptContents(script)
+               -- Clear existing content
+               if scriptDisplay then
+                   scriptDisplay:Destroy()
+               end
+               
+               -- Create script display frame
+               scriptDisplay = Instance.new("Frame")
+               scriptDisplay.Name = "ScriptDisplay"
+               scriptDisplay.Size = UDim2.new(1, -10, 1, -10)
+               scriptDisplay.Position = UDim2.new(0, 5, 0, 5)
+               scriptDisplay.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+               scriptDisplay.BorderSizePixel = 1
+               scriptDisplay.Parent = scriptsFrame
+               
+               -- Script title
+               local titleLabel = Instance.new("TextLabel")
+               titleLabel.Size = UDim2.new(1, 0, 0, 25)
+               titleLabel.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+               titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+               titleLabel.Text = script.Name .. " [" .. script.ClassName .. "]"
+               titleLabel.Font = Enum.Font.SourceSansBold
+               titleLabel.TextSize = 16
+               titleLabel.Parent = scriptDisplay
+               
+               -- Script content
+               local contentBox = Instance.new("ScrollingFrame")
+               contentBox.Size = UDim2.new(1, 0, 1, -25)
+               contentBox.Position = UDim2.new(0, 0, 0, 25)
+               contentBox.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+               contentBox.BorderSizePixel = 0
+               contentBox.ScrollBarThickness = 6
+               contentBox.CanvasSize = UDim2.new(0, 0, 5, 0)
+               contentBox.Parent = scriptDisplay
+               
+               local sourceText = Instance.new("TextLabel")
+               sourceText.Size = UDim2.new(1, -10, 0, 5000) -- Tall enough for most scripts
+               sourceText.Position = UDim2.new(0, 5, 0, 5)
+               sourceText.BackgroundTransparency = 1
+               sourceText.TextColor3 = Color3.fromRGB(200, 200, 200)
+               sourceText.TextXAlignment = Enum.TextXAlignment.Left
+               sourceText.TextYAlignment = Enum.TextYAlignment.Top
+               sourceText.TextSize = 14
+               sourceText.Font = Enum.Font.Code
+               sourceText.Text = getScriptSource(script)
+               sourceText.Parent = contentBox
+               
+               -- Adjust canvas size based on content
+               local textHeight = string.len(sourceText.Text) / 40 * 20 -- Approximate height
+               contentBox.CanvasSize = UDim2.new(0, 0, 0, math.max(500, textHeight))
+           end
+           
+           -- Function to collect and display all scripts in the game
+           local function collectAllScripts()
+               -- Clear existing content
+               for _, child in pairs(scriptsFrame:GetChildren()) do
+                   child:Destroy()
+               end
+               
+               -- Create list layout
+               local scriptsList = Instance.new("ScrollingFrame")
+               scriptsList.Name = "ScriptsList"
+               scriptsList.Size = UDim2.new(0.4, 0, 1, 0)
+               scriptsList.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+               scriptsList.BorderSizePixel = 1
+               scriptsList.ScrollBarThickness = 6
+               scriptsList.CanvasSize = UDim2.new(0, 0, 10, 0)
+               scriptsList.Parent = scriptsFrame
+               
+               local scriptsTitle = Instance.new("TextLabel")
+               scriptsTitle.Size = UDim2.new(1, 0, 0, 25)
+               scriptsTitle.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+               scriptsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+               scriptsTitle.Text = "All Scripts"
+               scriptsTitle.Font = Enum.Font.SourceSansBold
+               scriptsTitle.TextSize = 16
+               scriptsTitle.Parent = scriptsList
+               
+               -- Content placeholder
+               local contentFrame = Instance.new("Frame")
+               contentFrame.Name = "ScriptContent"
+               contentFrame.Size = UDim2.new(0.6, 0, 1, 0)
+               contentFrame.Position = UDim2.new(0.4, 0, 0, 0)
+               contentFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+               contentFrame.BorderSizePixel = 1
+               contentFrame.Parent = scriptsFrame
+               
+               local placeholderText = Instance.new("TextLabel")
+               placeholderText.Size = UDim2.new(1, -10, 0, 30)
+               placeholderText.Position = UDim2.new(0, 5, 0, 5)
+               placeholderText.BackgroundTransparency = 1
+               placeholderText.TextColor3 = Color3.fromRGB(200, 200, 200)
+               placeholderText.Text = "Select a script to view its contents"
+               placeholderText.Font = Enum.Font.SourceSans
+               placeholderText.TextSize = 16
+               placeholderText.Parent = contentFrame
+               
+               -- Collect all scripts
+               local allScripts = {}
+               
+               -- Function to find all scripts
+               local function findScriptsIn(parent)
+                   for _, child in pairs(parent:GetChildren()) do
+                       if child:IsA("Script") or child:IsA("LocalScript") or child:IsA("ModuleScript") then
+                           table.insert(allScripts, child)
+                       end
+                       findScriptsIn(child)
+                   end
+               end
+               
+               -- Find scripts in common locations
+               findScriptsIn(game:GetService("Workspace"))
+               findScriptsIn(game:GetService("ReplicatedStorage"))
+               pcall(function() findScriptsIn(game:GetService("ReplicatedFirst")) end)
+               pcall(function() findScriptsIn(game:GetService("ServerScriptService")) end)
+               pcall(function() findScriptsIn(game:GetService("ServerStorage")) end)
+               findScriptsIn(game:GetService("StarterGui"))
+               findScriptsIn(game:GetService("StarterPack"))
+               findScriptsIn(game:GetService("StarterPlayer"))
+               
+               -- Sort scripts by name
+               table.sort(allScripts, function(a, b)
+                   return a.Name < b.Name
+               end)
+               
+               -- Display scripts
+               local yPos = 30
+               for i, script in ipairs(allScripts) do
+                   local scriptButton = Instance.new("TextButton")
+                   scriptButton.Size = UDim2.new(1, -10, 0, 25)
+                   scriptButton.Position = UDim2.new(0, 5, 0, yPos)
+                   scriptButton.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+                   scriptButton.TextColor3 = Color3.fromRGB(220, 220, 220)
+                   scriptButton.TextXAlignment = Enum.TextXAlignment.Left
+                   scriptButton.Text = "  " .. script.Name
+                   
+                   -- Add icon to indicate script type
+                   local iconText
+                   if script:IsA("Script") then
+                       iconText = "🔧 " -- Server script
+                       scriptButton.TextColor3 = Color3.fromRGB(150, 255, 150)
+                   elseif script:IsA("LocalScript") then
+                       iconText = "🖥️ " -- Local script
+                       scriptButton.TextColor3 = Color3.fromRGB(150, 150, 255)
+                   else -- ModuleScript
+                       iconText = "📦 " -- Module
+                       scriptButton.TextColor3 = Color3.fromRGB(255, 255, 150)
+                   end
+                   
+                   scriptButton.Text = iconText .. script.Name .. " (" .. script.ClassName .. ")"
+                   scriptButton.Font = Enum.Font.SourceSans
+                   scriptButton.TextSize = 14
+                   
+                   -- Path information
+                   local pathInfo = Instance.new("TextLabel")
+                   pathInfo.Size = UDim2.new(1, -10, 0, 15)
+                   pathInfo.Position = UDim2.new(0, 25, 0, 20)
+                   pathInfo.BackgroundTransparency = 1
+                   pathInfo.TextColor3 = Color3.fromRGB(180, 180, 180)
+                   pathInfo.TextXAlignment = Enum.TextXAlignment.Left
+                   pathInfo.Text = "Path: " .. script:GetFullName()
+                   pathInfo.Font = Enum.Font.SourceSansItalic
+                   pathInfo.TextSize = 12
+                   pathInfo.Parent = scriptButton
+                   
+                   -- Connect click event
+                   scriptButton.MouseButton1Click:Connect(function()
+                       displayScriptContents(script)
+                   end)
+                   
+                   scriptButton.Parent = scriptsList
+                   
+                   yPos = yPos + 45
+               end
+               
+               -- Update canvas size
+               scriptsList.CanvasSize = UDim2.new(0, 0, 0, yPos + 10)
+               
+               -- Print script count to output
+               print("Found " .. #allScripts .. " scripts in the game")
+           end
+           
+           -- Populate explorer view
            local services = {
                game:GetService("Workspace"),
+               game:GetService("Players"),
                game:GetService("ReplicatedStorage"),
+               game:GetService("ReplicatedFirst"),
                game:GetService("ServerStorage"),
                game:GetService("ServerScriptService"),
                game:GetService("StarterGui"),
@@ -1177,181 +1534,623 @@ local Button = MainTab:CreateButton({
                game:GetService("SoundService")
            }
            
-           -- Track total height for canvas size adjustment
-           local totalHeight = 0
+           local yOffset = 5
            
-           for i, service in ipairs(services) do
-               -- Console output for debugging
-               showServiceContents(service)
+           -- Function to create a collapsible service section
+           local function createServiceSection(service, yPos)
+               local expandable = {}
                
-               -- Create visual explorer elements
-               local serviceLabel = Instance.new("TextButton")
-               serviceLabel.Name = service.Name .. "Label"
-               serviceLabel.Size = UDim2.new(1, -10, 0, textSize + 5)
-               serviceLabel.Position = UDim2.new(0, 5, 0, yPosition)
-               serviceLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
-               serviceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-               serviceLabel.TextXAlignment = Enum.TextXAlignment.Left
-               serviceLabel.Font = Enum.Font.SourceSansBold
-               serviceLabel.TextSize = textSize
-               serviceLabel.Text = "▶ " .. service.Name
-               serviceLabel.Parent = contentContainer
-               serviceLabel.ZIndex = 10 -- Ensure it's above other elements
+               -- Service header
+               local header = Instance.new("Frame")
+               header.Name = service.Name .. "Header"
+               header.Size = UDim2.new(1, -10, 0, 25)
+               header.Position = UDim2.new(0, 5, 0, yPos)
+               header.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+               header.Parent = explorerFrame
                
-               -- Keep track of this service's total height including children
-               local serviceHeight = textSize + 5
-               yPosition = yPosition + serviceHeight + 5
+               local expandButton = Instance.new("TextButton")
+               expandButton.Name = "ExpandButton"
+               expandButton.Size = UDim2.new(0, 20, 0, 25)
+               expandButton.Position = UDim2.new(0, 0, 0, 0)
+               expandButton.BackgroundTransparency = 1
+               expandButton.Text = "▶"
+               expandButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+               expandButton.Font = Enum.Font.SourceSansBold
+               expandButton.TextSize = 14
+               expandButton.Parent = header
                
-               -- Create frame for children (initially hidden)
-               local childrenFrame = Instance.new("Frame")
-               childrenFrame.Name = service.Name .. "Children"
-               childrenFrame.Size = UDim2.new(1, -20, 0, 1000) -- Initial size, will adjust
-               childrenFrame.Position = UDim2.new(0, 15, 0, yPosition)
-               childrenFrame.BackgroundTransparency = 1
-               childrenFrame.Visible = false
-               childrenFrame.Parent = contentContainer
-               childrenFrame.ZIndex = 5
+               local nameLabel = Instance.new("TextLabel")
+               nameLabel.Name = "NameLabel"
+               nameLabel.Size = UDim2.new(1, -25, 1, 0)
+               nameLabel.Position = UDim2.new(0, 25, 0, 0)
+               nameLabel.BackgroundTransparency = 1
+               nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+               nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+               nameLabel.Text = service.Name
+               nameLabel.Font = Enum.Font.SourceSansBold
+               nameLabel.TextSize = 14
+               nameLabel.Parent = header
                
-               local childYPos = 0
-               local childItems = {}
+               -- Container for child items
+               local childContainer = Instance.new("Frame")
+               childContainer.Name = service.Name .. "Children"
+               childContainer.Size = UDim2.new(1, -10, 0, 0)  -- Height will be set based on content
+               childContainer.Position = UDim2.new(0, 5, 0, yPos + 27)
+               childContainer.BackgroundTransparency = 1
+               childContainer.Visible = false
+               childContainer.Parent = explorerFrame
                
-               -- Add all children to the frame
-               for _, item in pairs(service:GetChildren()) do
-                   local itemLabel = Instance.new("TextLabel")
-                   itemLabel.Size = UDim2.new(1, -5, 0, textSize)
-                   itemLabel.Position = UDim2.new(0, 5, 0, childYPos)
-                   itemLabel.BackgroundTransparency = 1
-                   itemLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
-                   itemLabel.TextXAlignment = Enum.TextXAlignment.Left
-                   itemLabel.Font = Enum.Font.SourceSans
-                   itemLabel.TextSize = textSize - 2
-                   itemLabel.Text = "- " .. item.Name .. " [" .. item.ClassName .. "]"
-                   itemLabel.Parent = childrenFrame
-                   itemLabel.ZIndex = 2
+               -- Recursive function to create expandable items
+               local function createExpandableItem(item, xPos, yPos, container)
+                   local itemExpanded = false
+                   local childrenContainer = nil
                    
-                   table.insert(childItems, itemLabel)
-                   childYPos = childYPos + textSize + 2
-               end
-               
-               -- Set the actual size of the children frame
-               childrenFrame.Size = UDim2.new(1, -20, 0, childYPos)
-               local childrenHeight = childYPos
-               
-               -- Calculate total height if children were visible
-               local totalServiceHeight = serviceHeight + 5 + childrenHeight
-               
-               -- Function to update positions after toggle
-               local function updatePositions()
-                   -- Update positions of all service sections that come after this one
-                   local offset = 0
-                   if childrenFrame.Visible then
-                       offset = childrenHeight + 5
+                   local itemFrame = Instance.new("Frame")
+                   itemFrame.Size = UDim2.new(1, -xPos, 0, 20)
+                   itemFrame.Position = UDim2.new(0, xPos, 0, yPos)
+                   itemFrame.BackgroundTransparency = 1
+                   itemFrame.Parent = container
+                   
+                   local expandBtn = nil
+                   
+                   -- Only add expand button if the item has children
+                   if #item:GetChildren() > 0 then
+                       expandBtn = Instance.new("TextButton")
+                       expandBtn.Size = UDim2.new(0, 20, 0, 20)
+                       expandBtn.Position = UDim2.new(0, 0, 0, 0)
+                       expandBtn.BackgroundTransparency = 1
+                       expandBtn.Text = "▶"
+                       expandBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+                       expandBtn.Font = Enum.Font.SourceSansBold
+                       expandBtn.TextSize = 14
+                       expandBtn.Parent = itemFrame
                    end
                    
-                   -- Adjust all following services
-                   for j = i + 1, #services do
-                       local nextServiceLabel = contentContainer:FindFirstChild(services[j].Name .. "Label")
-                       local nextChildrenFrame = contentContainer:FindFirstChild(services[j].Name .. "Children")
-                       
-                       if nextServiceLabel then
-                           local currentPos = nextServiceLabel.Position
-                           nextServiceLabel.Position = UDim2.new(currentPos.X.Scale, currentPos.X.Offset, currentPos.Y.Scale, currentPos.Y.Offset + offset)
-                       end
-                       
-                       if nextChildrenFrame then
-                           local currentPos = nextChildrenFrame.Position
-                           nextChildrenFrame.Position = UDim2.new(currentPos.X.Scale, currentPos.X.Offset, currentPos.Y.Scale, currentPos.Y.Offset + offset)
-                       end
-                   end
+                   -- Item icon based on class
+                   local iconLabel = Instance.new("TextLabel")
+                   iconLabel.Size = UDim2.new(0, 20, 0, 20)
+                   iconLabel.Position = UDim2.new(0, expandBtn and 20 or 0, 0, 0)
+                   iconLabel.BackgroundTransparency = 1
+                   iconLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
                    
-                   -- Update total height
-                   totalHeight = totalHeight + offset
-                   contentContainer.Size = UDim2.new(1, -10, 0, totalHeight + 50)
-               end
-               
-               -- Toggle visibility when service is clicked
-               serviceLabel.MouseButton1Click:Connect(function()
-                   childrenFrame.Visible = not childrenFrame.Visible
-                   
-                   if childrenFrame.Visible then
-                       serviceLabel.Text = "▼ " .. service.Name
+                   -- Set icon based on class
+                   if item:IsA("Folder") then
+                       iconLabel.Text = "📁"
+                   elseif item:IsA("Script") then
+                       iconLabel.Text = "🔧"
+                       iconLabel.TextColor3 = Color3.fromRGB(150, 255, 150)
+                   elseif item:IsA("LocalScript") then
+                       iconLabel.Text = "🖥️"
+                       iconLabel.TextColor3 = Color3.fromRGB(150, 150, 255)
+                   elseif item:IsA("ModuleScript") then
+                       iconLabel.Text = "📦"
+                       iconLabel.TextColor3 = Color3.fromRGB(255, 255, 150)
+                   elseif item:IsA("Part") or item:IsA("MeshPart") then
+                       iconLabel.Text = "⬛"
+                   elseif item:IsA("Model") then
+                       iconLabel.Text = "🔷"
                    else
-                       serviceLabel.Text = "▶ " .. service.Name
+                       iconLabel.Text = "🔹"
                    end
                    
-                   -- Update positions of following services
-                   updatePositions()
+                   iconLabel.Font = Enum.Font.SourceSans
+                   iconLabel.TextSize = 14
+                   iconLabel.Parent = itemFrame
+                   
+                   -- Item name label
+                   local nameLabel = Instance.new("TextButton")
+                   nameLabel.Size = UDim2.new(1, -(expandBtn and 40 or 20), 1, 0)
+                   nameLabel.Position = UDim2.new(0, expandBtn and 40 or 20, 0, 0)
+                   nameLabel.BackgroundTransparency = 1
+                   nameLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+                   nameLabel.TextXAlignment = Enum.TextXAlignment.Left
+                   nameLabel.Text = item.Name .. " [" .. item.ClassName .. "]"
+                   nameLabel.Font = Enum.Font.SourceSans
+                   nameLabel.TextSize = 14
+                   nameLabel.Parent = itemFrame
+                   
+                   -- Selected item highlighting
+                   nameLabel.MouseButton1Click:Connect(function()
+                       -- Deselect previous selection if exists
+                       if _G.SelectedInstance and _G.SelectedInstance._namelabel then
+                           _G.SelectedInstance._namelabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+                           _G.SelectedInstance._namelabel.Font = Enum.Font.SourceSans
+                       end
+                       
+                       -- Select this item
+                       _G.SelectedInstance = item
+                       _G.SelectedInstance._namelabel = nameLabel
+                       nameLabel.TextColor3 = Color3.fromRGB(255, 255, 100)
+                       nameLabel.Font = Enum.Font.SourceSansBold
+                       
+                       -- Show properties if relevant
+                       if tabButtons["Properties"] then
+                           tabButtons["Properties"]:GetPropertyChangedSignal("BackgroundColor3"):Wait()
+                           populateProperties(item)
+                       end
+                       
+                       -- If script, show in script tab
+                       if item:IsA("Script") or item:IsA("LocalScript") or item:IsA("ModuleScript") then
+                           if tabButtons["Scripts"] then
+                               tabButtons["Scripts"]:GetPropertyChangedSignal("BackgroundColor3"):Wait()
+                               displayScriptContents(item)
+                           end
+                       end
+                   end)
+                   
+                   local childHeight = 0
+                   
+                   -- Handle expand functionality if item has children
+                   if expandBtn then
+                       expandBtn.MouseButton1Click:Connect(function()
+                           itemExpanded = not itemExpanded
+                           expandBtn.Text = itemExpanded and "▼" or "▶"
+                           
+                           if itemExpanded then
+                               -- Create children container if not exists
+                               if not childrenContainer then
+                                   childrenContainer = Instance.new("Frame")
+                                   childrenContainer.Name = item.Name .. "Children"
+                                   childrenContainer.Size = UDim2.new(1, 0, 0, 0)
+                                   childrenContainer.Position = UDim2.new(0, 0, 0, 20)
+                                   childrenContainer.BackgroundTransparency = 1
+                                   childrenContainer.Parent = itemFrame
+                                   
+                                   -- Populate children
+                                   local childYPos = 0
+                                   local childItems = {}
+                                   
+                                   -- Sort children: folders first, then other items
+                                   for _, child in pairs(item:GetChildren()) do
+                                       table.insert(childItems, child)
+                                   end
+                                   
+                                   table.sort(childItems, function(a, b)
+                                       local aIsContainer = a:IsA("Folder") or a:IsA("Model")
+                                       local bIsContainer = b:IsA("Folder") or b:IsA("Model")
+                                       
+                                       if aIsContainer and not bIsContainer then
+                                           return true
+                                       elseif not aIsContainer and bIsContainer then
+                                           return false
+                                       else
+                                           return a.Name < b.Name
+                                       end
+                                   end)
+                                   
+                                   for _, child in ipairs(childItems) do
+                                       local newChildHeight = createExpandableItem(child, 20, childYPos, childrenContainer)
+                                       childYPos = childYPos + newChildHeight
+                                   end
+                                   
+                                   childHeight = childYPos
+                                   childrenContainer.Size = UDim2.new(1, 0, 0, childHeight)
+                               end
+                               
+                               childrenContainer.Visible = true
+                           else
+                               if childrenContainer then
+                                   childrenContainer.Visible = false
+                               end
+                           end
+                           
+                           -- Recalculate heights for parent containers
+                           local totalHeight = 20 + (itemExpanded and childHeight or 0)
+                           itemFrame.Size = UDim2.new(1, -xPos, 0, totalHeight)
+                           
+                           -- Trigger recalculation up the chain
+                           container:GetPropertyChangedSignal("Size"):Fire()
+                       end)
+                   end
+                   
+                   return 20 -- Default height for unexpanded item
+               end
+               
+               -- Populate children of service
+               local yOffset = 0
+               local children = {}
+               
+               -- Get all children of service
+               pcall(function()
+                   for _, child in pairs(service:GetChildren()) do
+                       table.insert(children, child)
+                   end
                end)
                
-               -- Track total height for correct initial positioning
-               totalHeight = totalHeight + serviceHeight + 5
+               -- Sort children: folders first, then other items
+               table.sort(children, function(a, b)
+                   local aIsContainer = a:IsA("Folder") or a:IsA("Model")
+                   local bIsContainer = b:IsA("Folder") or b:IsA("Model")
+                   
+                   if aIsContainer and not bIsContainer then
+                       return true
+                   elseif not aIsContainer and bIsContainer then
+                       return false
+                   else
+                       return a.Name < b.Name
+                   end
+               end)
+               
+               -- Create items for each child
+               for _, child in ipairs(children) do
+                   local childHeight = createExpandableItem(child, 10, yOffset, childContainer)
+                   yOffset = yOffset + childHeight
+               end
+               
+               childContainer.Size = UDim2.new(1, -10, 0, yOffset)
+               
+               -- Toggle expand/collapse on click
+               local expanded = false
+               expandButton.MouseButton1Click:Connect(function()
+                   expanded = not expanded
+                   expandButton.Text = expanded and "▼" or "▶"
+                   childContainer.Visible = expanded
+                   
+                   -- Recalculate explorer frame canvas size
+                   recalculateExplorerCanvas()
+               end)
+               
+               expandable.header = header
+               expandable.container = childContainer
+               expandable.expanded = expanded
+               
+               return expandable, 27 -- Return height of header
            end
            
-           -- Set content container height based on all services
-           contentContainer.Size = UDim2.new(1, -10, 0, totalHeight + 50)
-           
-           -- Look for leaderstats
-           print("\n=== Player Leaderstats ===")
-           for _, player in pairs(game.Players:GetPlayers()) do
-               if player:FindFirstChild("leaderstats") then
-                   print("Player: " .. player.Name)
-                   for _, stat in pairs(player.leaderstats:GetChildren()) do
-                       print("  - " .. stat.Name .. ": " .. tostring(stat.Value))
+           -- Function to recalculate explorer canvas size
+           function recalculateExplorerCanvas()
+               local totalHeight = 5
+               
+               for _, child in pairs(explorerFrame:GetChildren()) do
+                   if child:IsA("Frame") and child.Name:find("Header") then
+                       totalHeight = totalHeight + child.Size.Y.Offset
+                       
+                       local childContainer = explorerFrame:FindFirstChild(child.Name:gsub("Header", "Children"))
+                       if childContainer and childContainer.Visible then
+                           totalHeight = totalHeight + childContainer.Size.Y.Offset
+                       end
                    end
                end
+               
+               explorerFrame.CanvasSize = UDim2.new(0, 0, 0, totalHeight + 10)
            end
            
-           -- Try to show hidden/restricted properties if allowed
-           pcall(function()
-               settings().Studio.ShowHiddenInstances = true
-           end)
-           
-           -- Enable property explorer if available
-           pcall(function()
-               local coreGui = game:GetService("CoreGui")
-               if coreGui:FindFirstChild("ThemeProvider") then
-                   local propertiesButton = coreGui.ThemeProvider.TopBarFrame.RightFrame.DevConsoleContainer.DevConsoleWindow.MainView.Tabs.PropertiesButton
-                   if propertiesButton then
-                       propertiesButton.AutoButtonColor = true
+           -- Function to populate properties panel
+           function populateProperties(instance)
+               -- Clear existing properties
+               for _, child in pairs(propertiesFrame:GetChildren()) do
+                   child:Destroy()
+               end
+               
+               -- Instance info header
+               local header = Instance.new("Frame")
+               header.Name = "InstanceHeader"
+               header.Size = UDim2.new(1, -10, 0, 40)
+               header.Position = UDim2.new(0, 5, 0, 5)
+               header.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+               header.BorderSizePixel = 0
+               header.Parent = propertiesFrame
+               
+               local instanceName = Instance.new("TextLabel")
+               instanceName.Size = UDim2.new(1, -10, 0, 20)
+               instanceName.Position = UDim2.new(0, 5, 0, 5)
+               instanceName.BackgroundTransparency = 1
+               instanceName.TextColor3 = Color3.fromRGB(255, 255, 150)
+               instanceName.TextXAlignment = Enum.TextXAlignment.Left
+               instanceName.Text = instance.Name
+               instanceName.Font = Enum.Font.SourceSansBold
+               instanceName.TextSize = 16
+               instanceName.Parent = header
+               
+               local instanceClass = Instance.new("TextLabel")
+               instanceClass.Size = UDim2.new(1, -10, 0, 15)
+               instanceClass.Position = UDim2.new(0, 5, 0, 22)
+               instanceClass.BackgroundTransparency = 1
+               instanceClass.TextColor3 = Color3.fromRGB(200, 200, 200)
+               instanceClass.TextXAlignment = Enum.TextXAlignment.Left
+               instanceClass.Text = "Class: " .. instance.ClassName
+               instanceClass.Font = Enum.Font.SourceSans
+               instanceClass.TextSize = 14
+               instanceClass.Parent = header
+               
+               -- Properties list
+               local yPos = 50
+               local properties = {}
+               
+               -- Get all properties
+               for _, propertyName in pairs({"Name", "Parent", "Position", "Size", "CFrame", "BrickColor", "Material", "Transparency", "CanCollide", "Anchored", "Massless"}) do
+                   -- Check if property exists
+                   local success, value = pcall(function()
+                       return instance[propertyName]
+                   end)
+                   
+                   if success then
+                       table.insert(properties, {
+                           name = propertyName,
+                           value = value
+                       })
                    end
+               end
+               
+               -- Sort properties alphabetically
+               table.sort(properties, function(a, b)
+                   return a.name < b.name
+               end)
+               
+               -- Display properties
+               for _, property in ipairs(properties) do
+                   local propFrame = Instance.new("Frame")
+                   propFrame.Size = UDim2.new(1, -10, 0, 25)
+                   propFrame.Position = UDim2.new(0, 5, 0, yPos)
+                   propFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+                   propFrame.BorderSizePixel = 0
+                   propFrame.Parent = propertiesFrame
+                   
+                   local propName = Instance.new("TextLabel")
+                   propName.Size = UDim2.new(0.4, -5, 1, 0)
+                   propName.BackgroundTransparency = 1
+                   propName.TextColor3 = Color3.fromRGB(200, 200, 255)
+                   propName.TextXAlignment = Enum.TextXAlignment.Left
+                   propName.Text = "  " .. property.name
+                   propName.Font = Enum.Font.SourceSans
+                   propName.TextSize = 14
+                   propName.Parent = propFrame
+                   
+                   local propValue = Instance.new("TextLabel")
+                   propValue.Size = UDim2.new(0.6, 0, 1, 0)
+                   propValue.Position = UDim2.new(0.4, 0, 0, 0)
+                   propValue.BackgroundTransparency = 1
+                   propValue.TextColor3 = Color3.fromRGB(255, 255, 255)
+                   propValue.TextXAlignment = Enum.TextXAlignment.Left
+                   
+                   -- Format value based on type
+                   local valueText
+                   if typeof(property.value) == "Color3" then
+                       valueText = string.format("RGB(%d, %d, %d)", 
+                           math.floor(property.value.R * 255), 
+                           math.floor(property.value.G * 255), 
+                           math.floor(property.value.B * 255))
+                   elseif typeof(property.value) == "Vector3" then
+                       valueText = string.format("(%.2f, %.2f, %.2f)", 
+                           property.value.X, property.value.Y, property.value.Z)
+                   elseif typeof(property.value) == "UDim2" then
+                       valueText = string.format("{%d, %d}, {%d, %d}", 
+                           property.value.X.Scale, property.value.X.Offset, 
+                           property.value.Y.Scale, property.value.Y.Offset)
+                   elseif typeof(property.value) == "Instance" then
+                       valueText = property.value.Name
+                   elseif typeof(property.value) == "boolean" then
+                       valueText = property.value and "true" or "false"
+                       propValue.TextColor3 = property.value and Color3.fromRGB(100, 255, 100) or Color3.fromRGB(255, 100, 100)
+                   elseif typeof(property.value) == "EnumItem" then
+                       valueText = tostring(property.value)
+                   else
+                       valueText = tostring(property.value)
+                   end
+                   
+                   propValue.Text = valueText
+                   propValue.Font = Enum.Font.SourceSans
+                   propValue.TextSize = 14
+                   propValue.Parent = propFrame
+                   
+                   yPos = yPos + 27
+               end
+               
+               -- Update canvas size
+               propertiesFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 10)
+           end
+           
+           -- Function to populate leaderstats view
+           local function populateLeaderstats()
+               -- Clear existing items
+               for _, child in pairs(leaderstatsFrame:GetChildren()) do
+                   child:Destroy()
+               end
+               
+               local yPos = 5
+               
+               -- Title
+               local title = Instance.new("TextLabel")
+               title.Size = UDim2.new(1, -10, 0, 30)
+               title.Position = UDim2.new(0, 5, 0, yPos)
+               title.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+               title.TextColor3 = Color3.fromRGB(255, 255, 255)
+               title.Text = "Player Leaderstats"
+               title.Font = Enum.Font.SourceSansBold
+               title.TextSize = 18
+               title.Parent = leaderstatsFrame
+               
+               yPos = yPos + 35
+               
+               -- Headers
+               local headerFrame = Instance.new("Frame")
+               headerFrame.Size = UDim2.new(1, -10, 0, 25)
+               headerFrame.Position = UDim2.new(0, 5, 0, yPos)
+               headerFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+               headerFrame.Parent = leaderstatsFrame
+               
+               local playerHeader = Instance.new("TextLabel")
+               playerHeader.Size = UDim2.new(0.4, -5, 1, 0)
+               playerHeader.BackgroundTransparency = 1
+               playerHeader.TextColor3 = Color3.fromRGB(255, 255, 255)
+               playerHeader.Text = "Player"
+               playerHeader.Font = Enum.Font.SourceSansBold
+               playerHeader.TextSize = 14
+               playerHeader.Parent = headerFrame
+               
+               local statsHeader = Instance.new("TextLabel")
+               statsHeader.Size = UDim2.new(0.6, 0, 1, 0)
+               statsHeader.Position = UDim2.new(0.4, 0, 0, 0)
+               statsHeader.BackgroundTransparency = 1
+               statsHeader.TextColor3 = Color3.fromRGB(255, 255, 255)
+               statsHeader.Text = "Statistics"
+               statsHeader.Font = Enum.Font.SourceSansBold
+               statsHeader.TextSize = 14
+               statsHeader.Parent = headerFrame
+               
+               yPos = yPos + 30
+               
+               -- Player entries
+               for _, player in pairs(game.Players:GetPlayers()) do
+                   local playerFrame = Instance.new("Frame")
+                   playerFrame.Size = UDim2.new(1, -10, 0, 30)
+                   playerFrame.Position = UDim2.new(0, 5, 0, yPos)
+                   playerFrame.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+                   playerFrame.Parent = leaderstatsFrame
+                   
+                   local playerName = Instance.new("TextLabel")
+                   playerName.Size = UDim2.new(0.4, -5, 1, 0)
+                   playerName.BackgroundTransparency = 1
+                   playerName.TextColor3 = Color3.fromRGB(200, 200, 255)
+                   playerName.TextXAlignment = Enum.TextXAlignment.Left
+                   playerName.Text = "  " .. player.Name
+                   playerName.Font = Enum.Font.SourceSans
+                   playerName.TextSize = 14
+                   playerName.Parent = playerFrame
+                   
+                   local statsText = ""
+                   
+                   -- Get leaderstats if exists
+                   local leaderstats = player:FindFirstChild("leaderstats")
+                   if leaderstats then
+                       for _, stat in pairs(leaderstats:GetChildren()) do
+                           statsText = statsText .. stat.Name .. ": " .. tostring(stat.Value) .. "   "
+                       end
+                   else
+                       statsText = "No leaderstats found"
+                   end
+                   
+                   local statsLabel = Instance.new("TextLabel")
+                   statsLabel.Size = UDim2.new(0.6, -5, 1, 0)
+                   statsLabel.Position = UDim2.new(0.4, 0, 0, 0)
+                   statsLabel.BackgroundTransparency = 1
+                   statsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+                   statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+                   statsLabel.Text = statsText
+                   statsLabel.Font = Enum.Font.SourceSans
+                   statsLabel.TextSize = 14
+                   statsLabel.Parent = playerFrame
+                   
+                   yPos = yPos + 35
+               end
+               
+               -- Update canvas size
+               leaderstatsFrame.CanvasSize = UDim2.new(0, 0, 0, yPos + 10)
+           end
+           
+           -- Function to create output panel
+           local function setupOutputPanel()
+               -- Clear existing items
+               for _, child in pairs(outputFrame:GetChildren()) do
+                   child:Destroy()
+               end
+               
+               -- Title
+               local title = Instance.new("TextLabel")
+               title.Size = UDim2.new(1, -10, 0, 30)
+               title.Position = UDim2.new(0, 5, 0, 5)
+               title.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+               title.TextColor3 = Color3.fromRGB(255, 255, 255)
+               title.Text = "Output Log"
+               title.Font = Enum.Font.SourceSansBold
+               title.TextSize = 18
+               title.Parent = outputFrame
+               
+               -- Output text area
+               local textArea = Instance.new("ScrollingFrame")
+               textArea.Name = "OutputText"
+               textArea.Size = UDim2.new(1, -10, 1, -40)
+               textArea.Position = UDim2.new(0, 5, 0, 40)
+               textArea.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+               textArea.BorderSizePixel = 1
+               textArea.ScrollBarThickness = 6
+               textArea.CanvasSize = UDim2.new(0, 0, 10, 0)
+               textArea.Parent = outputFrame
+               
+               -- Log content
+               local outputText = Instance.new("TextLabel")
+               outputText.Name = "Content"
+               outputText.Size = UDim2.new(1, -10, 0, 5000) -- Make it tall for lots of text
+               outputText.Position = UDim2.new(0, 5, 0, 5)
+               outputText.BackgroundTransparency = 1
+               outputText.TextColor3 = Color3.fromRGB(220, 220, 220)
+               outputText.TextXAlignment = Enum.TextXAlignment.Left
+               outputText.TextYAlignment = Enum.TextYAlignment.Top
+               outputText.Text = "Enhanced Studio Explorer activated\n"
+               outputText.Font = Enum.Font.Code
+               outputText.TextSize = 14
+               outputText.Parent = textArea
+               
+               -- Capture print/warn/error output
+               local oldPrint = print
+               local oldWarn = warn
+               local oldError = error
+               
+               -- Redirect print
+               print = function(...)
+                   local args = {...}
+                   local message = ""
+                   for i, v in ipairs(args) do
+                       message = message .. tostring(v) .. (i < #args and " " or "")
+                   end
+                   
+                   outputText.Text = outputText.Text .. "[INFO] " .. message .. "\n"
+                   oldPrint(...)
+               end
+               
+               -- Redirect warn
+               warn = function(...)
+                   local args = {...}
+                   local message = ""
+                   for i, v in ipairs(args) do
+                       message = message .. tostring(v) .. (i < #args and " " or "")
+                   end
+                   
+                   outputText.Text = outputText.Text .. "[WARN] " .. message .. "\n"
+                   oldWarn(...)
+               end
+               
+               -- Store original functions for cleanup
+               _G.OriginalPrint = oldPrint
+               _G.OriginalWarn = oldWarn
+               _G.OriginalError = oldError
+               
+               print("Output panel ready")
+           end
+           
+           -- Initialize explorer view
+           for _, service in ipairs(services) do
+               pcall(function()
+                   local expandable, height = createServiceSection(service, yOffset)
+                   yOffset = yOffset + height
+               end)
+           end
+           
+           -- Initialize other tabs
+           collectAllScripts()  -- Scripts tab
+           populateLeaderstats() -- Leaderstats tab
+           setupOutputPanel()   -- Output tab
+           
+           -- Set up auto-refresh for dynamic data
+           spawn(function()
+               while _G.StudioViewEnabled do
+                   if leaderstatsFrame.Visible then
+                       populateLeaderstats()
+                   end
+                   wait(2)
                end
            end)
            
-           -- Add close button for easy closing
-           local closeButton = Instance.new("TextButton")
-           closeButton.Size = UDim2.new(0, 20, 0, 20)
-           closeButton.Position = UDim2.new(1, -25, 0, 5)
-           closeButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
-           closeButton.Text = "X"
-           closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-           closeButton.Font = Enum.Font.SourceSansBold
-           closeButton.Parent = frame
-           closeButton.ZIndex = 100
+           -- Final canvas size update
+           recalculateExplorerCanvas()
            
-           closeButton.MouseButton1Click:Connect(function()
-               _G.StudioViewEnabled = false
-               screenGui:Destroy()
-               print("Studio View disabled")
-           end)
-           
-           -- Open dev console to see output
-           game:GetService("StarterGui"):SetCore("DevConsoleVisible", true)
-           
-           print("Studio View enabled - check your screen for the Explorer panel")
+           print("Enhanced Studio Explorer activated!")
        else
-           -- Clean up when disabled
-           local playerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
-           if playerGui and playerGui:FindFirstChild("StudioExplorer") then
-               playerGui.StudioExplorer:Destroy()
-           end
-           
-           -- Close dev console
-           game:GetService("StarterGui"):SetCore("DevConsoleVisible", false)
-           
-           print("Studio View disabled")
+           print("Enhanced Studio View disabled")
        end
    end
 })
+                              
 
 local TeleportTab = Window:CreateTab("🌀Teleport", nil) -- Title, Image
 local TeleportSection = TeleportTab:CreateSection("Teleport")
