@@ -1102,6 +1102,171 @@ spawn(function()
     end
 end)
 
+local Button = Tab:CreateButton({
+   Name = "Studio View",
+   Callback = function()
+       -- Toggle state variable
+       _G.StudioViewEnabled = not (_G.StudioViewEnabled or false)
+       
+       local function showServiceContents(service)
+           print("\n=== " .. service.Name .. " Contents ===")
+           for _, item in pairs(service:GetChildren()) do
+               print("• " .. item.Name .. " [" .. item.ClassName .. "]")
+               -- Show next level of children for important items
+               if #item:GetChildren() > 0 then
+                   for _, child in pairs(item:GetChildren()) do
+                       print("  ↳ " .. child.Name .. " [" .. child.ClassName .. "]")
+                   end
+               end
+           end
+       end
+       
+       if _G.StudioViewEnabled then
+           -- Create studio-like info display
+           local screenGui = Instance.new("ScreenGui")
+           screenGui.Name = "StudioExplorer"
+           screenGui.ResetOnSpawn = false
+           screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+           
+           local frame = Instance.new("Frame")
+           frame.Name = "ExplorerPanel"
+           frame.Size = UDim2.new(0.3, 0, 0.8, 0)
+           frame.Position = UDim2.new(0.7, 0, 0.1, 0)
+           frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+           frame.BorderSizePixel = 2
+           frame.Parent = screenGui
+           
+           local titleBar = Instance.new("TextLabel")
+           titleBar.Name = "TitleBar"
+           titleBar.Size = UDim2.new(1, 0, 0.05, 0)
+           titleBar.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+           titleBar.TextColor3 = Color3.fromRGB(255, 255, 255)
+           titleBar.Text = "Explorer (Studio View)"
+           titleBar.Parent = frame
+           
+           local scrollFrame = Instance.new("ScrollingFrame")
+           scrollFrame.Name = "ServicesView"
+           scrollFrame.Size = UDim2.new(1, 0, 0.95, 0)
+           scrollFrame.Position = UDim2.new(0, 0, 0.05, 0)
+           scrollFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+           scrollFrame.BorderSizePixel = 0
+           scrollFrame.ScrollBarThickness = 6
+           scrollFrame.CanvasSize = UDim2.new(0, 0, 5, 0) -- Make it scrollable
+           scrollFrame.Parent = frame
+           
+           -- Output all services and their contents to console and create UI elements
+           local yPosition = 0
+           local textSize = 18
+           local services = {
+               game:GetService("Workspace"),
+               game:GetService("ReplicatedStorage"),
+               game:GetService("ServerStorage"),
+               game:GetService("ServerScriptService"),
+               game:GetService("StarterGui"),
+               game:GetService("StarterPack"),
+               game:GetService("StarterPlayer"),
+               game:GetService("Lighting"),
+               game:GetService("SoundService")
+           }
+           
+           for _, service in pairs(services) do
+               -- Console output for debugging
+               showServiceContents(service)
+               
+               -- Create visual explorer elements
+               local serviceLabel = Instance.new("TextButton")
+               serviceLabel.Name = service.Name .. "Label"
+               serviceLabel.Size = UDim2.new(1, -10, 0, textSize + 5)
+               serviceLabel.Position = UDim2.new(0, 5, 0, yPosition)
+               serviceLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 60)
+               serviceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+               serviceLabel.TextXAlignment = Enum.TextXAlignment.Left
+               serviceLabel.Font = Enum.Font.SourceSansBold
+               serviceLabel.TextSize = textSize
+               serviceLabel.Text = "▶ " .. service.Name
+               serviceLabel.Parent = scrollFrame
+               
+               yPosition = yPosition + textSize + 10
+               
+               -- Create frame for children (initially hidden)
+               local childrenFrame = Instance.new("Frame")
+               childrenFrame.Name = service.Name .. "Children"
+               childrenFrame.Size = UDim2.new(1, -20, 0, 0) -- Will expand as we add children
+               childrenFrame.Position = UDim2.new(0, 15, 0, yPosition)
+               childrenFrame.BackgroundTransparency = 1
+               childrenFrame.Visible = false
+               childrenFrame.Parent = scrollFrame
+               
+               local childYPos = 0
+               
+               -- Toggle visibility when service is clicked
+               serviceLabel.MouseButton1Click:Connect(function()
+                   childrenFrame.Visible = not childrenFrame.Visible
+                   if childrenFrame.Visible then
+                       serviceLabel.Text = "▼ " .. service.Name
+                   else
+                       serviceLabel.Text = "▶ " .. service.Name
+                   end
+               end)
+               
+               -- Add all children to the frame
+               for _, item in pairs(service:GetChildren()) do
+                   local itemLabel = Instance.new("TextLabel")
+                   itemLabel.Size = UDim2.new(1, -5, 0, textSize)
+                   itemLabel.Position = UDim2.new(0, 5, 0, childYPos)
+                   itemLabel.BackgroundTransparency = 1
+                   itemLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+                   itemLabel.TextXAlignment = Enum.TextXAlignment.Left
+                   itemLabel.Font = Enum.Font.SourceSans
+                   itemLabel.TextSize = textSize - 2
+                   itemLabel.Text = "- " .. item.Name .. " [" .. item.ClassName .. "]"
+                   itemLabel.Parent = childrenFrame
+                   
+                   childYPos = childYPos + textSize + 2
+               end
+               
+               childrenFrame.Size = UDim2.new(1, -20, 0, childYPos)
+           end
+           
+           -- Look for leaderstats
+           print("\n=== Player Leaderstats ===")
+           for _, player in pairs(game.Players:GetPlayers()) do
+               if player:FindFirstChild("leaderstats") then
+                   print("Player: " .. player.Name)
+                   for _, stat in pairs(player.leaderstats:GetChildren()) do
+                       print("  - " .. stat.Name .. ": " .. tostring(stat.Value))
+                   end
+               end
+           end
+           
+           -- Try to show hidden/restricted properties if allowed
+           pcall(function()
+               settings().Studio.ShowHiddenInstances = true
+           end)
+           
+           -- Enable property explorer if available
+           pcall(function()
+               game:GetService("CoreGui").ThemeProvider.TopBarFrame.RightFrame.DevConsoleContainer.DevConsoleWindow.MainView.Tabs.PropertiesButton.AutoButtonColor = true
+           end)
+           
+           -- Open dev console to see output
+           game:GetService("StarterGui"):SetCore("DevConsoleVisible", true)
+           
+           print("Studio View enabled - check your screen for the Explorer panel")
+       else
+           -- Clean up when disabled
+           local playerGui = game.Players.LocalPlayer:FindFirstChild("PlayerGui")
+           if playerGui and playerGui:FindFirstChild("StudioExplorer") then
+               playerGui.StudioExplorer:Destroy()
+           end
+           
+           -- Close dev console
+           game:GetService("StarterGui"):SetCore("DevConsoleVisible", false)
+           
+           print("Studio View disabled")
+       end
+   end
+})
 
 local TeleportTab = Window:CreateTab("🌀Teleport", nil) -- Title, Image
 local TeleportSection = TeleportTab:CreateSection("Teleport")
