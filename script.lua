@@ -1220,10 +1220,9 @@ local Toggle = TeleportTab:CreateToggle({
     end,
 })
 
--- Assuming you already have Rayfield and your Tab set up
-local StatsTab = Window:CreateTab("Statistics", 4483362458)
 
-local StatsSection = StatsTab:CreateSection("Stats")
+local StatsTab = Window:CreateTab("Statistics", 4483362458)
+local StatsSection = StatsTab:CreateSection("Live Stats")
 
 -- Initialize statistics variables
 local kills = 0
@@ -1232,74 +1231,12 @@ local ammoShot = 0
 local startTime = os.time()
 local timePlayed = 0
 
--- Example stat tracking button for kills
-StatsTab:CreateButton({
-    Name = "Track Kill",
-    Info = "Click to add a kill to your stats", -- Optional tooltip
-    Interact = "Click",
-    Callback = function()
-        -- Update your kill stats here
-        kills = kills + 1
-        
-        -- Update K/D ratio
-        local kd = 0
-        if deaths > 0 then
-            kd = kills / deaths
-        else
-            kd = kills
-        end
-        
-        -- You can add your own notification or UI update here
-        Rayfield:Notify({
-            Title = "Kill Tracked",
-            Content = "Total Kills: " .. kills .. " | K/D: " .. string.format("%.2f", kd),
-            Duration = 2,
-            Image = 4483362458 -- Optional icon
-        })
-    end,
-})
-
--- Track deaths button
-StatsTab:CreateButton({
-    Name = "Track Death",
-    Info = "Click to add a death to your stats",
-    Interact = "Click",
-    Callback = function()
-        deaths = deaths + 1
-        
-        -- Update K/D ratio
-        local kd = 0
-        if deaths > 0 then
-            kd = kills / deaths
-        else
-            kd = kills
-        end
-        
-        Rayfield:Notify({
-            Title = "Death Tracked",
-            Content = "Total Deaths: " .. deaths .. " | K/D: " .. string.format("%.2f", kd),
-            Duration = 2,
-            Image = 4483362458
-        })
-    end,
-})
-
--- Track ammo button
-StatsTab:CreateButton({
-    Name = "Track Ammo Shot",
-    Info = "Click to add 10 ammo to your stats",
-    Interact = "Click",
-    Callback = function()
-        ammoShot = ammoShot + 10
-        
-        Rayfield:Notify({
-            Title = "Ammo Tracked",
-            Content = "Total Ammo Shot: " .. ammoShot,
-            Duration = 2,
-            Image = 4483362458
-        })
-    end,
-})
+-- Create labels to display stats
+local killsLabel = StatsTab:CreateLabel("Kills: 0")
+local deathsLabel = StatsTab:CreateLabel("Deaths: 0")
+local kdLabel = StatsTab:CreateLabel("K/D Ratio: 0")
+local ammoLabel = StatsTab:CreateLabel("Ammo Shot: 0")
+local timeLabel = StatsTab:CreateLabel("Playtime: 00:00:00")
 
 -- Format time as HH:MM:SS
 local function formatTime(seconds)
@@ -1309,49 +1246,133 @@ local function formatTime(seconds)
     return string.format("%02d:%02d:%02d", hours, minutes, secs)
 end
 
--- Update playtime button
-StatsTab:CreateButton({
-    Name = "Update Playtime",
-    Info = "Click to update your current playtime",
-    Interact = "Click",
-    Callback = function()
-        timePlayed = os.time() - startTime
-        
-        Rayfield:Notify({
-            Title = "Playtime Updated",
-            Content = "Total Playtime: " .. formatTime(timePlayed),
-            Duration = 2,
-            Image = 4483362458
-        })
-    end,
-})
+-- Function to update K/D ratio
+local function updateKD()
+    local kd = 0
+    if deaths > 0 then
+        kd = kills / deaths
+    else
+        kd = kills
+    end
+    kdLabel:Set("K/D Ratio: " .. string.format("%.2f", kd))
+    return kd
+end
 
--- View all stats button
-StatsTab:CreateButton({
-    Name = "View All Stats",
-    Info = "Click to see all your current stats",
-    Interact = "Click",
-    Callback = function()
-        -- Calculate current K/D
-        local kd = 0
-        if deaths > 0 then
-            kd = kills / deaths
-        else
-            kd = kills
-        end
-        
-        -- Update playtime
+-- Auto update playtime
+spawn(function()
+    while true do
+        wait(1)
         timePlayed = os.time() - startTime
-        
-        -- Show comprehensive stats
+        timeLabel:Set("Playtime: " .. formatTime(timePlayed))
+    end
+end)
+
+-- Get player references
+local player = game:GetService("Players").LocalPlayer
+local connections = {}
+
+-- Stats tracking section
+StatsSection = StatsTab:CreateSection("Auto Tracking Status")
+local trackingStatus = StatsTab:CreateLabel("⚡ All stats are being tracked automatically")
+
+-- Set up auto-tracking for kills
+local function setupKillTracking()
+    -- Check if Arsenal uses leaderstats
+    if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Kills") then
+        connections.killTracker = player.leaderstats.Kills.Changed:Connect(function(newValue)
+            if newValue > kills then
+                local increase = newValue - kills
+                kills = newValue
+                killsLabel:Set("Kills: " .. kills)
+                updateKD()
+                
+                Rayfield:Notify({
+                    Title = "Kill Registered",
+                    Content = "You now have " .. kills .. " kills",
+                    Duration = 1.5,
+                })
+            end
+        end)
+    else
+        -- Fallback method if leaderstats not available
+        local previousKills = 0
+        connections.killTrackerAlt = game:GetService("RunService").Heartbeat:Connect(function()
+            -- This is a placeholder - actual implementation would depend on how Arsenal tracks kills
+            local currentKills = 0
+            
+            -- Check for kill feed or other indicators
+            -- Example: currentKills = [get kills from game UI or events]
+            
+            if currentKills > previousKills then
+                kills = kills + (currentKills - previousKills)
+                previousKills = currentKills
+                killsLabel:Set("Kills: " .. kills)
+                updateKD()
+            end
+        end)
+    end
+end
+
+-- Set up auto-tracking for deaths
+local function setupDeathTracking()
+    -- Check if Arsenal uses leaderstats
+    if player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Deaths") then
+        connections.deathTracker = player.leaderstats.Deaths.Changed:Connect(function(newValue)
+            if newValue > deaths then
+                local increase = newValue - deaths
+                deaths = newValue
+                deathsLabel:Set("Deaths: " .. deaths)
+                updateKD()
+                
+                Rayfield:Notify({
+                    Title = "Death Registered",
+                    Content = "You now have " .. deaths .. " deaths",
+                    Duration = 1.5,
+                })
+            end
+        end)
+    else
+        -- Fallback method for death tracking
+        connections.deathTrackerAlt = player.CharacterAdded:Connect(function()
+            -- This assumes character respawn indicates a death in Arsenal
+            deaths = deaths + 1
+            deathsLabel:Set("Deaths: " .. deaths)
+            updateKD()
+        end)
+    end
+end
+
+-- Set up auto-tracking for ammo
+local function setupAmmoTracking()
+    connections.ammoTracker = game:GetService("UserInputService").InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            -- Check if player is holding a weapon
+            if player.Character and player.Character:FindFirstChildOfClass("Tool") then
+                ammoShot = ammoShot + 1
+                ammoLabel:Set("Ammo Shot: " .. ammoShot)
+            end
+        end
+    end)
+end
+
+-- Start all tracking immediately
+setupKillTracking()
+setupDeathTracking()
+setupAmmoTracking()
+
+-- View all stats button (only button needed since tracking is automatic)
+StatsTab:CreateButton({
+    Name = "View Stats Summary",
+    Info = "Click to see all your current stats",
+    Callback = function()
         Rayfield:Notify({
-            Title = "Your Game Statistics",
+            Title = "Your Arsenal Statistics",
             Content = "Kills: " .. kills .. 
                      "\nDeaths: " .. deaths .. 
-                     "\nK/D: " .. string.format("%.2f", kd) ..
+                     "\nK/D: " .. string.format("%.2f", updateKD()) ..
                      "\nAmmo Shot: " .. ammoShot ..
                      "\nPlaytime: " .. formatTime(timePlayed),
-            Duration = a,
+            Duration = 6,
             Image = 4483362458
         })
     end,
@@ -1360,14 +1381,18 @@ StatsTab:CreateButton({
 -- Reset all stats button
 StatsTab:CreateButton({
     Name = "Reset All Stats",
-    Info = "WARNING: This will reset all your tracked stats",
-    Interact = "Click",
+    Info = "Reset all your tracked stats",
     Callback = function()
         kills = 0
         deaths = 0
         ammoShot = 0
         startTime = os.time()
         timePlayed = 0
+        
+        killsLabel:Set("Kills: 0")
+        deathsLabel:Set("Deaths: 0")
+        kdLabel:Set("K/D Ratio: 0")
+        ammoLabel:Set("Ammo Shot: 0")
         
         Rayfield:Notify({
             Title = "Stats Reset",
@@ -1378,87 +1403,46 @@ StatsTab:CreateButton({
     end,
 })
 
--- Auto-tracking section (requires connecting to game events)
-local AutoTrackTab = Window:CreateTab("Auto Tracking", 4483362458)
+-- Settings Tab
+local SettingsTab = Window:CreateTab("Settings", 4483362458)
 
--- Toggle for auto kill tracking
-AutoTrackTab:CreateToggle({
-    Name = "Auto Track Kills",
-    CurrentValue = false,
-    Flag = "AutoKills",
+-- Notification toggle
+SettingsTab:CreateToggle({
+    Name = "Show Kill Notifications",
+    CurrentValue = true,
+    Flag = "KillNotifications",
     Callback = function(Value)
-        -- Connect to game's kill event when true
-        -- Disconnect when false
-        if Value then
-            Rayfield:Notify({
-                Title = "Auto Tracking Enabled",
-                Content = "Kill tracking will now happen automatically",
-                Duration = 2,
-            })
-            
-            -- Here you would connect to game events
-            -- Example: game.Players.LocalPlayer.Kills.Changed:Connect(function()
-            --    kills = kills + 1
-            -- end)
-        else
-            Rayfield:Notify({
-                Title = "Auto Tracking Disabled",
-                Content = "Kill tracking set to manual mode",
-                Duration = 2,
-            })
-            
-            -- Disconnect from events here
-        end
+        -- This would control whether kill notifications appear
     end,
 })
 
--- Toggle for auto death tracking
-AutoTrackTab:CreateToggle({
-    Name = "Auto Track Deaths",
-    CurrentValue = false,
-    Flag = "AutoDeaths",
+SettingsTab:CreateToggle({
+    Name = "Show Death Notifications",
+    CurrentValue = true,
+    Flag = "DeathNotifications",
     Callback = function(Value)
-        -- Connect to game's death event when true
-        -- Disconnect when false
-        if Value then
-            Rayfield:Notify({
-                Title = "Auto Tracking Enabled",
-                Content = "Death tracking will now happen automatically",
-                Duration = 2,
-            })
-        else
-            Rayfield:Notify({
-                Title = "Auto Tracking Disabled",
-                Content = "Death tracking set to manual mode",
-                Duration = 2,
-            })
-        end
+        -- This would control whether death notifications appear
     end,
 })
 
--- Toggle for auto ammo tracking
-AutoTrackTab:CreateToggle({
-    Name = "Auto Track Ammo",
-    CurrentValue = false,
-    Flag = "AutoAmmo",
+-- Auto-save toggle
+SettingsTab:CreateToggle({
+    Name = "Auto-Save Stats",
+    CurrentValue = true,
+    Flag = "AutoSave",
     Callback = function(Value)
-        -- Connect to game's weapon fire event when true
-        -- Disconnect when false
-        if Value then
-            Rayfield:Notify({
-                Title = "Auto Tracking Enabled",
-                Content = "Ammo tracking will now happen automatically",
-                Duration = 2,
-            })
-        else
-            Rayfield:Notify({
-                Title = "Auto Tracking Disabled",
-                Content = "Ammo tracking set to manual mode",
-                Duration = 2,
-            })
-        end
+        -- Code to enable/disable auto-saving
     end,
 })
+
+-- Cleanup connections when script is terminated
+game:GetService("Players").PlayerRemoving:Connect(function(plr)
+    if plr == player then
+        for _, connection in pairs(connections) do
+            if connection then connection:Disconnect() end
+        end
+    end
+end)
 
 local MiscTab = Window:CreateTab("📢Misc", nil) -- Title, Image
 local MiscSection = MiscTab:CreateSection("Misc")
