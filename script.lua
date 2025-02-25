@@ -1102,7 +1102,7 @@ spawn(function()
     end
 end)
 
-local Button = Tab:CreateButton({
+local Button = MainTab:CreateButton({
    Name = "Studio View",
    Callback = function()
        -- Toggle state variable
