@@ -1151,8 +1151,16 @@ local Button = MainTab:CreateButton({
            scrollFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
            scrollFrame.BorderSizePixel = 0
            scrollFrame.ScrollBarThickness = 6
-           scrollFrame.CanvasSize = UDim2.new(0, 0, 5, 0) -- Make it scrollable
+           scrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y -- Auto-adjust canvas size
+           scrollFrame.CanvasSize = UDim2.new(0, 0, 10, 0) -- Initial canvas size (will adjust)
            scrollFrame.Parent = frame
+           
+           -- Create container for all content to fix positioning issues
+           local contentContainer = Instance.new("Frame")
+           contentContainer.Name = "ContentContainer"
+           contentContainer.Size = UDim2.new(1, -10, 0, 5000) -- Will be adjusted based on content
+           contentContainer.BackgroundTransparency = 1
+           contentContainer.Parent = scrollFrame
            
            -- Output all services and their contents to console and create UI elements
            local yPosition = 0
@@ -1169,7 +1177,10 @@ local Button = MainTab:CreateButton({
                game:GetService("SoundService")
            }
            
-           for _, service in pairs(services) do
+           -- Track total height for canvas size adjustment
+           local totalHeight = 0
+           
+           for i, service in ipairs(services) do
                -- Console output for debugging
                showServiceContents(service)
                
@@ -1184,30 +1195,25 @@ local Button = MainTab:CreateButton({
                serviceLabel.Font = Enum.Font.SourceSansBold
                serviceLabel.TextSize = textSize
                serviceLabel.Text = "▶ " .. service.Name
-               serviceLabel.Parent = scrollFrame
+               serviceLabel.Parent = contentContainer
+               serviceLabel.ZIndex = 10 -- Ensure it's above other elements
                
-               yPosition = yPosition + textSize + 10
+               -- Keep track of this service's total height including children
+               local serviceHeight = textSize + 5
+               yPosition = yPosition + serviceHeight + 5
                
                -- Create frame for children (initially hidden)
                local childrenFrame = Instance.new("Frame")
                childrenFrame.Name = service.Name .. "Children"
-               childrenFrame.Size = UDim2.new(1, -20, 0, 0) -- Will expand as we add children
+               childrenFrame.Size = UDim2.new(1, -20, 0, 1000) -- Initial size, will adjust
                childrenFrame.Position = UDim2.new(0, 15, 0, yPosition)
                childrenFrame.BackgroundTransparency = 1
                childrenFrame.Visible = false
-               childrenFrame.Parent = scrollFrame
+               childrenFrame.Parent = contentContainer
+               childrenFrame.ZIndex = 5
                
                local childYPos = 0
-               
-               -- Toggle visibility when service is clicked
-               serviceLabel.MouseButton1Click:Connect(function()
-                   childrenFrame.Visible = not childrenFrame.Visible
-                   if childrenFrame.Visible then
-                       serviceLabel.Text = "▼ " .. service.Name
-                   else
-                       serviceLabel.Text = "▶ " .. service.Name
-                   end
-               end)
+               local childItems = {}
                
                -- Add all children to the frame
                for _, item in pairs(service:GetChildren()) do
@@ -1221,12 +1227,68 @@ local Button = MainTab:CreateButton({
                    itemLabel.TextSize = textSize - 2
                    itemLabel.Text = "- " .. item.Name .. " [" .. item.ClassName .. "]"
                    itemLabel.Parent = childrenFrame
+                   itemLabel.ZIndex = 2
                    
+                   table.insert(childItems, itemLabel)
                    childYPos = childYPos + textSize + 2
                end
                
+               -- Set the actual size of the children frame
                childrenFrame.Size = UDim2.new(1, -20, 0, childYPos)
+               local childrenHeight = childYPos
+               
+               -- Calculate total height if children were visible
+               local totalServiceHeight = serviceHeight + 5 + childrenHeight
+               
+               -- Function to update positions after toggle
+               local function updatePositions()
+                   -- Update positions of all service sections that come after this one
+                   local offset = 0
+                   if childrenFrame.Visible then
+                       offset = childrenHeight + 5
+                   end
+                   
+                   -- Adjust all following services
+                   for j = i + 1, #services do
+                       local nextServiceLabel = contentContainer:FindFirstChild(services[j].Name .. "Label")
+                       local nextChildrenFrame = contentContainer:FindFirstChild(services[j].Name .. "Children")
+                       
+                       if nextServiceLabel then
+                           local currentPos = nextServiceLabel.Position
+                           nextServiceLabel.Position = UDim2.new(currentPos.X.Scale, currentPos.X.Offset, currentPos.Y.Scale, currentPos.Y.Offset + offset)
+                       end
+                       
+                       if nextChildrenFrame then
+                           local currentPos = nextChildrenFrame.Position
+                           nextChildrenFrame.Position = UDim2.new(currentPos.X.Scale, currentPos.X.Offset, currentPos.Y.Scale, currentPos.Y.Offset + offset)
+                       end
+                   end
+                   
+                   -- Update total height
+                   totalHeight = totalHeight + offset
+                   contentContainer.Size = UDim2.new(1, -10, 0, totalHeight + 50)
+               end
+               
+               -- Toggle visibility when service is clicked
+               serviceLabel.MouseButton1Click:Connect(function()
+                   childrenFrame.Visible = not childrenFrame.Visible
+                   
+                   if childrenFrame.Visible then
+                       serviceLabel.Text = "▼ " .. service.Name
+                   else
+                       serviceLabel.Text = "▶ " .. service.Name
+                   end
+                   
+                   -- Update positions of following services
+                   updatePositions()
+               end)
+               
+               -- Track total height for correct initial positioning
+               totalHeight = totalHeight + serviceHeight + 5
            end
+           
+           -- Set content container height based on all services
+           contentContainer.Size = UDim2.new(1, -10, 0, totalHeight + 50)
            
            -- Look for leaderstats
            print("\n=== Player Leaderstats ===")
@@ -1246,7 +1308,30 @@ local Button = MainTab:CreateButton({
            
            -- Enable property explorer if available
            pcall(function()
-               game:GetService("CoreGui").ThemeProvider.TopBarFrame.RightFrame.DevConsoleContainer.DevConsoleWindow.MainView.Tabs.PropertiesButton.AutoButtonColor = true
+               local coreGui = game:GetService("CoreGui")
+               if coreGui:FindFirstChild("ThemeProvider") then
+                   local propertiesButton = coreGui.ThemeProvider.TopBarFrame.RightFrame.DevConsoleContainer.DevConsoleWindow.MainView.Tabs.PropertiesButton
+                   if propertiesButton then
+                       propertiesButton.AutoButtonColor = true
+                   end
+               end
+           end)
+           
+           -- Add close button for easy closing
+           local closeButton = Instance.new("TextButton")
+           closeButton.Size = UDim2.new(0, 20, 0, 20)
+           closeButton.Position = UDim2.new(1, -25, 0, 5)
+           closeButton.BackgroundColor3 = Color3.fromRGB(255, 80, 80)
+           closeButton.Text = "X"
+           closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+           closeButton.Font = Enum.Font.SourceSansBold
+           closeButton.Parent = frame
+           closeButton.ZIndex = 100
+           
+           closeButton.MouseButton1Click:Connect(function()
+               _G.StudioViewEnabled = false
+               screenGui:Destroy()
+               print("Studio View disabled")
            end)
            
            -- Open dev console to see output
